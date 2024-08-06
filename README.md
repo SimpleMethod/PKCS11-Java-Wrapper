@@ -123,7 +123,6 @@ public class PKCS11Example {
 
 This example initializes the PKCS11 library, opens a session, and provides a menu-driven interface for various PKCS#11 operations.
 
-### Detailed Examples
 
 ### Detailed Examples
 
@@ -282,7 +281,98 @@ The project is structured into several key components:
 
 ### Class Diagrams
 
-(Insert class diagram here)
+```mermaid
+classDiagram
+    class PKCS11Manager {
+        -Pkcs11 pkcs11
+        -Path libraryPath
+        -String pin
+        +PKCS11Manager(Path libraryPath, String pin)
+        +openSession(int slotId): PKCS11Session
+        +getPKCS11Token(): Pkcs11SignatureToken
+        +close()
+    }
+    class PKCS11Session {
+        -Pkcs11 pkcs11
+        -NativeLong session
+        -String pin
+        +PKCS11Session(Pkcs11 pkcs11, String pin, int slotId)
+        +resetSession()
+        +logout()
+        +close()
+    }
+    class PKCS11Initializer {
+        +initializePkcs11(Path libraryPath): Pkcs11
+    }
+    class PKCS11Crypto {
+        -initCrypto(Pkcs11 pkcs11, NativeLong session, NativeLong privateKeyHandle)
+        +encryptData(byte[] dataToEncrypt, X509Certificate certificate): byte[]
+        +decryptData(Pkcs11 pkcs11, NativeLong session, NativeLong privateKeyHandle, byte[] encryptedData): byte[]
+        -decrypt(Pkcs11 pkcs11, NativeLong session, byte[] encryptedData): byte[]
+    }
+    class PKCS11Signer {
+        -initSigning(Pkcs11 pkcs11, NativeLong session, NativeLong privateKeyHandle)
+        +signMessage(Pkcs11 pkcs11, NativeLong session, NativeLong privateKeyHandle, byte[] message): byte[]
+        +verifySignature(byte[] message, byte[] signature, X509Certificate certificate): boolean
+        -sign(Pkcs11 pkcs11, NativeLong session, byte[] message): byte[]
+    }
+    class PKCS11Utils {
+        +findPrivateKeysAndCertificates(Pkcs11 pkcs11, NativeLong session): List<KeyCertificatePair>
+        +listSupportedAlgorithms(Pkcs11 pkcs11, NativeLong session, int slotID): List<SupportedAlgorithm>
+        -findAllCertificates(Pkcs11 pkcs11, NativeLong session): Map<String, NativeLong>
+        -findAllPrivateKeys(Pkcs11 pkcs11, NativeLong session): Map<String, NativeLong>
+        -getCKA_ID(Pkcs11 pkcs11, NativeLong session, NativeLong objectHandle): String
+        -getCertificate(Pkcs11 pkcs11, NativeLong session, NativeLong certHandle): X509Certificate
+        -bytesToHex(byte[] bytes): String
+        -getMechanismList(Pkcs11 pkcs11, NativeLong slotID): NativeLong[]
+        -getMechanismName(long mechanismCode): String
+        -getAlgorithmType(CK_MECHANISM_INFO mechanismInfo): SupportedAlgorithm.AlgorithmType
+    }
+    class KeyCertificatePair {
+        -NativeLong keyHandle
+        -X509Certificate certificate
+        -String ckaId
+        -CertificateInfo certificateInfo
+    }
+    class CertificateInfo {
+        -String subject
+        -String issuer
+        -BigInteger serialNumber
+        -byte[] signature
+        -Date notBefore
+        -Date notAfter
+        -String sigAlgName
+        -String sigAlgOID
+        -byte[] tbsCertificate
+        -int version
+        -PublicKey publicKey
+        -boolean[] issuerUniqueID
+        -boolean[] subjectUniqueID
+        -boolean[] keyUsage
+        -List<String> extendedKeyUsage
+        -int basicConstraints
+        -Collection<List<?>> subjectAlternativeNames
+        -Collection<List<?>> issuerAlternativeNames
+        -byte[] encoded
+    }
+    class SupportedAlgorithm {
+        -String name
+        -String code
+        -AlgorithmType type
+        +enum AlgorithmType
+    }
+
+    PKCS11Manager --> PKCS11Initializer : uses
+    PKCS11Manager --> PKCS11Session : creates
+    PKCS11Manager --> Pkcs11 : manages
+    PKCS11Session --> Pkcs11 : uses
+    PKCS11Crypto --> Pkcs11 : uses
+    PKCS11Signer --> Pkcs11 : uses
+    PKCS11Utils --> Pkcs11 : uses
+    PKCS11Utils --> KeyCertificatePair : creates
+    PKCS11Utils --> SupportedAlgorithm : creates
+    KeyCertificatePair --> CertificateInfo : contains
+    KeyCertificatePair --> X509Certificate : contains
 
 ### Sequence Diagrams
 
