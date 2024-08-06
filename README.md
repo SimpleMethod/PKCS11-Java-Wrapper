@@ -373,6 +373,7 @@ classDiagram
     PKCS11Utils --> SupportedAlgorithm : creates
     KeyCertificatePair --> CertificateInfo : contains
     KeyCertificatePair --> X509Certificate : contains
+```
 
 ### Sequence Diagrams
 
