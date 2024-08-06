@@ -77,7 +77,7 @@ Root:.
 
 ### Prerequisites
 
-- Java Development Kit (JDK) 21 or higher
+- Java Development Kit (JDK) 17 or higher
 - Maven 4.0.0 or higher
 - A PKCS#11 compatible hardware security module or smart card
 - The appropriate PKCS#11 library for your device (e.g., opensc-pkcs11.dll)
