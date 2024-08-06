@@ -17,6 +17,7 @@
 - [Architecture](#architecture)
     - [Class Diagrams](#class-diagrams)
     - [Sequence Diagrams](#sequence-diagrams)
+- [Tested Environments](#tested-environments)
 - [Testing](#testing)
 - [Contributing](#contributing)
 - [License](#license)
@@ -371,7 +372,7 @@ sequenceDiagram
     PKCS11Manager->>Pkcs11Library: C_Finalize()
 ```
 
-#### Signing Process (continued)
+#### Signing Process
 
 ```mermaid
 sequenceDiagram
@@ -472,6 +473,27 @@ These sequence diagrams illustrate the flow of operations for the core functiona
 4. **Signature Verification Process**: Shows how a signature is verified using the corresponding certificate's public key.
 
 Each diagram highlights the interactions between different components of the system, including the client application, PKCS11 wrapper classes, and the underlying PKCS#11 library.
+
+## 🧪 Tested Environments
+
+We have thoroughly tested the PKCS11 Java Wrapper in various environments to ensure its compatibility and performance. Below is a table of our tested configurations:
+
+| Operating System | Processor | Java Version | OpenSC Version | Status |
+|------------------|-----------|--------------|----------------|--------|
+| Windows 11 x64   | AMD Ryzen 9 7950X3D (x64) | LTS 21 (Eclipse Temurin) | 0.25.1 | ✅ |
+| macOS Sonoma 14.5 | M3 Max (arm)   | LTS 21 (Eclipse Temurin) | 0.25.1 | ✅ |
+
+### Windows 11 x64
+- **Java**: LTS 21 Eclipse Temurin
+- **OpenSC**: Version 0.25.1
+- **Status**: Fully tested and operational
+
+### macOS Sonoma 14.5 (M3 MAX)
+- **Java**: LTS 21 Eclipse Temurin
+- **OpenSC**: Version 0.25.1
+- **Status**: Fully tested and operational
+
+We continuously strive to expand our testing to cover more environments and configurations. If you successfully run the PKCS11 Java Wrapper in a different environment, please let us know so we can update our compatibility list.
 
 ## 🧪 Testing
 
