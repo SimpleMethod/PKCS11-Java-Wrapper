@@ -571,15 +571,18 @@ We have thoroughly tested the PKCS11 Java Wrapper in various environments to ens
 
 | Operating System | Processor | Java Version | OpenSC Version | Status |
 |------------------|-----------|--------------|----------------|--------|
-| Windows 11 x64   | AMD Ryzen 9 7950X3D (x64) | LTS 21 (Eclipse Temurin) | 0.25.1 | ✅ |
-| macOS Sonoma 14.5 | M3 Max (arm)   | LTS 21 (Eclipse Temurin) | 0.25.1 | ✅ |
+| Windows 11 x64   |  x64 | LTS 21 (Eclipse Temurin) | 0.25.1 | ✅ |
+| Windows 11 x64   |  x32 | LTS 17 (Eclipse Temurin) | 0.25.0 | ✅ |
+| Windows 11 x64   |  x64 | LTS 21 (Eclipse Temurin) | 0.24.0 | ✅ |
+| Windows 11 x64   |  x64 | LTS 21 (Eclipse Temurin) | 0.23.0-rc2 | ✅ |
+| macOS Sonoma 14.5 | arm   | LTS 21 (Eclipse Temurin) | 0.25.1 | ✅ |
 
-### Windows 11 x64
-- **Java**: LTS 21 Eclipse Temurin
-- **OpenSC**: Version 0.25.1
+### Windows 11 x64 and x32
+- **Java**: LTS 21 Eclipse Temurin /  LTS 17 Eclipse Temurin
+- **OpenSC**: Versions: 0.25.1,  0.24.0,  0.23.0-rc2, 0.25.0
 - **Status**: Fully tested and operational
 
-### macOS Sonoma 14.5 (M3 MAX)
+### macOS Sonoma 14.5
 - **Java**: LTS 21 Eclipse Temurin
 - **OpenSC**: Version 0.25.1
 - **Status**: Fully tested and operational
