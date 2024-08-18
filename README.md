@@ -576,6 +576,7 @@ We have thoroughly tested the PKCS11 Java Wrapper in various environments to ens
 | Windows 11 x64   |  x64 | LTS 21 (Eclipse Temurin) | 0.24.0 | ✅ |
 | Windows 11 x64   |  x64 | LTS 21 (Eclipse Temurin) | 0.23.0-rc2 | ✅ |
 | macOS Sonoma 14.5 | arm   | LTS 21 (Eclipse Temurin) | 0.25.1 | ✅ |
+| Ubuntu 24.04 | x64   | LTS 21 (Eclipse Temurin) | 0.25.0 | ✅ |
 
 ### Windows 11 x64 and x32
 - **Java**: LTS 21 Eclipse Temurin /  LTS 17 Eclipse Temurin
