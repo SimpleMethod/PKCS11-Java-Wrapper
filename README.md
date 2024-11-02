@@ -35,6 +35,9 @@ Welcome to the PKCS11 Java Wrapper! This comprehensive Java library provides a r
 - 🔐 Data encryption and decryption
 - 🧰 Utility functions for common PKCS#11 operations
 - 🛡️ Comprehensive exception handling for robust error management
+- 📱 Multi-device support with hot-plug capabilities
+- 🔄 Automatic device state monitoring
+- 🎯 Device filtering by capabilities and state
 - 🧪 Extensive test coverage ensuring reliability
 
 ## 📂 Project Structure
@@ -54,6 +57,7 @@ Root:.
 │   │   │               └───pkcs11
 │   │   │                   │   PKCS11Crypto.java
 │   │   │                   │   PKCS11Initializer.java
+│   │   │                   │   PKCS11DeviceManager.java
 │   │   │                   │   PKCS11Manager.java
 │   │   │                   │   PKCS11Session.java
 │   │   │                   │   PKCS11Signer.java
@@ -62,7 +66,11 @@ Root:.
 │   │   │                   │       // Various exception classes
 │   │   │                   └───model
 │   │   │                           CertificateInfo.java
+│   │   │                           DeviceCapability.java
+│   │   │                           DeviceChangeListener.java
+│   │   │                           DeviceState.java
 │   │   │                           KeyCertificatePair.java
+│   │   │                           PKCS11Device.java
 │   │   │                           SupportedAlgorithm.java
 │   └───test
 │       └───java
@@ -77,7 +85,7 @@ Root:.
 
 ### Prerequisites
 
-- Java Development Kit (JDK) 17 or higher
+- Java Development Kit (JDK) 21 or higher
 - Maven 4.0.0 or higher
 - A PKCS#11 compatible hardware security module or smart card
 - The appropriate PKCS#11 library for your device (e.g., opensc-pkcs11.dll)
@@ -111,12 +119,46 @@ import java.nio.file.Paths;
 
 public class PKCS11Example {
     public static void main(String[] args) {
-        String userDir = System.getProperty("user.dir");
-        PKCS11 example = new PKCS11(
-                Paths.get(userDir, "lib", "opensc-pkcs11.dll"),
-                "your_pin_here"
-        );
-        example.run();
+        try (PKCS11Manager manager = new PKCS11Manager(Paths.get("path/to/pkcs11/library"))) {
+            // Register device change listener
+            manager.registerDeviceChangeListener(new DeviceChangeListener() {
+                @Override
+                public void onDeviceConnected(PKCS11Device device) {
+                    System.out.println("Device connected: " + device.getLabel());
+                }
+
+                @Override
+                public void onDeviceDisconnected(PKCS11Device device) {
+                    System.out.println("Device disconnected: " + device.getLabel());
+                }
+
+                @Override
+                public void onDeviceStateChanged(PKCS11Device device, DeviceState oldState) {
+                    System.out.println("Device state changed: " + device.getLabel() + 
+                                     " from " + oldState + " to " + device.getState());
+                }
+
+                @Override
+                public void onDeviceError(PKCS11Device device, Exception error) {
+                    System.err.println("Device error: " + device.getLabel() + 
+                                     " - " + error.getMessage());
+                }
+            });
+
+            // List available devices
+            List<PKCS11Device> devices = manager.listDevices();
+            System.out.println("Available devices: " + devices.size());
+
+            // Select device and perform operations
+            if (!devices.isEmpty()) {
+                PKCS11Device selectedDevice = devices.get(0);
+                String pin = "your_pin_here";
+
+                try (PKCS11Session session = manager.openSession(selectedDevice, pin)) {
+                    // Perform operations with session...
+                }
+            }
+        }
     }
 }
 ```
@@ -361,7 +403,43 @@ classDiagram
         -AlgorithmType type
         +enum AlgorithmType
     }
+    class PKCS11DeviceManager {
+        -Pkcs11 pkcs11
+        -Map<NativeLong, PKCS11Device> devices
+        -Set<DeviceChangeListener> listeners
+        -ScheduledExecutorService deviceMonitor
+        +listDevices(): List<PKCS11Device>
+        +listDevicesByState(DeviceState): List<PKCS11Device>
+        +listDevicesByCapability(DeviceCapability): List<PKCS11Device>
+        +getDevice(NativeLong): Optional<PKCS11Device>
+        +registerDeviceChangeListener(DeviceChangeListener)
+        +unregisterDeviceChangeListener(DeviceChangeListener)
+    }
+    
+    class PKCS11Device {
+        -NativeLong slotId
+        -String label
+        -String manufacturer
+        -String model
+        -String serialNumber
+        -Set<DeviceCapability> capabilities
+        -DeviceState state
+        +getDetailedInfo(): Map<String, String>
+        +updateState(): boolean
+        +isReady(): boolean
+    }
+    
+    class DeviceChangeListener {
+        <<interface>>
+        +onDeviceConnected(PKCS11Device)
+        +onDeviceDisconnected(PKCS11Device)
+        +onDeviceStateChanged(PKCS11Device, DeviceState)
+        +onDeviceError(PKCS11Device, Exception)
+    }
 
+    PKCS11Manager --> PKCS11DeviceManager : uses
+    PKCS11DeviceManager --> PKCS11Device : manages
+    PKCS11DeviceManager --> DeviceChangeListener : notifies
     PKCS11Manager --> PKCS11Initializer : uses
     PKCS11Manager --> PKCS11Session : creates
     PKCS11Manager --> Pkcs11 : manages
@@ -606,6 +684,12 @@ Our test suite covers various scenarios, including:
 - Encryption and decryption
 - Digital signature creation and verification
 - Error handling and exception scenarios
+- Device detection and management
+- Device state monitoring
+- Hot-plug capability testing
+- Device capability filtering
+- Device change event handling
+- Multi-device operations
 
 ## 🤝 Contributing
 
