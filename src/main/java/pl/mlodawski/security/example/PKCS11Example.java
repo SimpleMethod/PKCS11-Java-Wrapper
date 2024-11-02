@@ -103,7 +103,7 @@ class PKCS11 {
                     } catch (Exception e) {
                         System.out.println("Session error: " + e.getMessage());
                         selectedDevice = null;
-                        PIN = null; // Czyścimy PIN w przypadku błędu sesji
+                        PIN = null; 
                     }
                 } catch (Exception e) {
                     System.out.println("An error occurred: " + e.getMessage());
@@ -130,7 +130,7 @@ class PKCS11 {
                     continue;
                 }
 
-                // Dodajemy wymuszenie podania PIN-u po zmianie urządzenia
+            
                 if (!getPINFromUser()) {
                     retryCount++;
                     continue;
