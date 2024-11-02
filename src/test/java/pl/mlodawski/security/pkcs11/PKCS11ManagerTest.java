@@ -36,11 +36,11 @@ class PKCS11ManagerTest {
     @BeforeEach
     void setUp() {
         libraryPathMock = mock(Path.class);
-        // Mockowanie podstawowych wywołań PKCS11
+
         when(pkcs11Mock.C_GetSlotList(anyByte(), any(), any(NativeLongByReference.class)))
                 .thenAnswer(invocation -> {
                     NativeLongByReference count = invocation.getArgument(2);
-                    count.setValue(new NativeLong(1)); // Symulujemy jeden slot
+                    count.setValue(new NativeLong(1));
                     return new NativeLong(Pkcs11Constants.CKR_OK);
                 });
 

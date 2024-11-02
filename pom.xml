@@ -6,7 +6,7 @@
 
     <groupId>pl.mlodawski.security</groupId>
     <artifactId>credentials-support</artifactId>
-    <version>1.1</version>
+    <version>1.2</version>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
@@ -37,6 +37,13 @@
         <url>https://github.com/SimpleMethod/PKCS11-Java-Wrapper</url>
     </scm>
 
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub SimpleMethod Apache Maven Packages</name>
+            <url>https://maven.pkg.github.com/SimpleMethod/PKCS11-Java-Wrapper</url>
+        </repository>
+    </distributionManagement>
 
     <dependencies>
         <dependency>

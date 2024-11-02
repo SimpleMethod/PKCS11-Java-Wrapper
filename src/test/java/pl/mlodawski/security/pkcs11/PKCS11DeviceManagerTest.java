@@ -35,7 +35,6 @@ class PKCS11DeviceManagerTest {
 
     @BeforeEach
     void setUp() {
-        // Podstawowe mockowanie dla inicjalizacji
         lenient().when(pkcs11Mock.C_GetSlotList(eq(TOKEN_PRESENT), any(), any(NativeLongByReference.class)))
                 .thenAnswer(inv -> {
                     NativeLongByReference count = inv.getArgument(2);

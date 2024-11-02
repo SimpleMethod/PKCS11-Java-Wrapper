@@ -86,7 +86,7 @@ class PKCS11UtilsTest {
 
     @Test
     void getCKA_ID_validInput_shouldReturnCKA_ID() {
-        // Mock behavior for C_GetAttributeValue
+
         when(pkcs11Mock.C_GetAttributeValue(any(NativeLong.class), any(NativeLong.class), any(CK_ATTRIBUTE[].class), any(NativeLong.class)))
                 .thenAnswer(invocation -> {
                     CK_ATTRIBUTE[] template = invocation.getArgument(2);

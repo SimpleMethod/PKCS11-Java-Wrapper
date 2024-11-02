@@ -3,12 +3,12 @@ package pl.mlodawski.security.example;
 import pl.mlodawski.security.pkcs11.*;
 import pl.mlodawski.security.pkcs11.model.*;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.Base64;
-import java.util.Map;
-import java.util.Scanner;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.*;
 
 class PKCS11 {
     private final Path PKCS11_WRAPPER_PATH;
@@ -76,15 +76,24 @@ class PKCS11 {
                                     signMessage(manager, session);
                                     break;
                                 case 3:
-                                    encryptDecryptData(manager, session);
+                                    signFile(manager, session);
                                     break;
                                 case 4:
-                                    listSupportedAlgorithms(manager, session);
+                                    verifyFileSignature(manager, session);
                                     break;
                                 case 5:
+                                    encryptDecryptData(manager, session);
+                                    break;
+                                case 6:
+                                    encryptDecryptFile(manager, session);
+                                    break;
+                                case 7:
+                                    listSupportedAlgorithms(manager, session);
+                                    break;
+                                case 8:
                                     selectedDevice = null;
                                     return;
-                                case 6:
+                                case 9:
                                     session.close();
                                     selectedDevice = null;
                                     PIN = null;
@@ -96,14 +105,14 @@ class PKCS11 {
                                     System.out.println("Invalid choice. Please try again.");
                             }
 
-                            if (choice == 6) {
-                                break;
-                            }
+//                            if (choice == 6) {
+//                                break;
+//                            }
                         }
                     } catch (Exception e) {
                         System.out.println("Session error: " + e.getMessage());
                         selectedDevice = null;
-                        PIN = null; 
+                        PIN = null;
                     }
                 } catch (Exception e) {
                     System.out.println("An error occurred: " + e.getMessage());
@@ -115,6 +124,156 @@ class PKCS11 {
         }
     }
 
+    private void signFile(PKCS11Manager manager, PKCS11Session session) {
+        try {
+            KeyCertificatePair selectedPair = selectCertificateKeyPair(manager, session);
+
+            System.out.print("Enter path to file to sign: ");
+            Scanner scanner = new Scanner(System.in);
+            String filePath = scanner.nextLine();
+
+            Path path = Paths.get(filePath);
+            if (!Files.exists(path)) {
+                System.out.println("File does not exist: " + filePath);
+                return;
+            }
+
+            byte[] fileContent = Files.readAllBytes(path);
+            PKCS11Signer signer = new PKCS11Signer();
+            byte[] signature = signer.signMessage(manager.getPkcs11(),
+                    session.getSession(),
+                    selectedPair.getKeyHandle(),
+                    fileContent);
+
+            // Save signature to file
+            String signatureFilePath = filePath + ".sig";
+            Files.write(Paths.get(signatureFilePath), signature);
+
+            System.out.println("File signed successfully. Signature saved to: " + signatureFilePath);
+            System.out.println("Signature (Base64): " + Base64.getEncoder().encodeToString(signature));
+
+            // Verify signature immediately
+            boolean isSignatureValid = signer.verifySignature(fileContent, signature, selectedPair.getCertificate());
+            System.out.println("Signature verification: " + (isSignatureValid ? "Valid" : "Invalid"));
+        } catch (Exception e) {
+            System.out.println("Error during file signing: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void verifyFileSignature(PKCS11Manager manager, PKCS11Session session) {
+        try {
+            KeyCertificatePair selectedPair = selectCertificateKeyPair(manager, session);
+            Scanner scanner = new Scanner(System.in);
+
+            System.out.print("Enter path to file to verify: ");
+            String filePath = scanner.nextLine();
+
+            System.out.print("Enter path to signature file: ");
+            String signatureFilePath = scanner.nextLine();
+
+            if (!Files.exists(Paths.get(filePath))) {
+                System.out.println("File does not exist: " + filePath);
+                return;
+            }
+            if (!Files.exists(Paths.get(signatureFilePath))) {
+                System.out.println("Signature file does not exist: " + signatureFilePath);
+                return;
+            }
+
+            byte[] fileContent = Files.readAllBytes(Paths.get(filePath));
+            byte[] signature = Files.readAllBytes(Paths.get(signatureFilePath));
+
+            PKCS11Signer signer = new PKCS11Signer();
+            boolean isSignatureValid = signer.verifySignature(fileContent, signature, selectedPair.getCertificate());
+
+            System.out.println("Signature verification result: " + (isSignatureValid ? "Valid" : "Invalid"));
+        } catch (Exception e) {
+            System.out.println("Error during signature verification: " + e.getMessage());
+        }
+    }
+
+    private void encryptDecryptFile(PKCS11Manager manager, PKCS11Session session) {
+        try {
+            KeyCertificatePair selectedPair = selectCertificateKeyPair(manager, session);
+            Scanner scanner = new Scanner(System.in);
+
+            System.out.print("Enter path to file to encrypt: ");
+            String filePath = scanner.nextLine();
+
+            if (!Files.exists(Paths.get(filePath))) {
+                System.out.println("File does not exist: " + filePath);
+                return;
+            }
+
+            byte[] fileContent = Files.readAllBytes(Paths.get(filePath));
+
+            // Encrypt file using hybrid encryption
+            PKCS11Crypto crypto = new PKCS11Crypto();
+            byte[][] encryptedPackage = crypto.encryptData(fileContent, selectedPair.getCertificate());
+
+            // Save encrypted components
+            String encryptedKeyPath = filePath + ".key.enc";
+            String encryptedIVPath = filePath + ".iv";
+            String encryptedDataPath = filePath + ".data.enc";
+
+            Files.write(Paths.get(encryptedKeyPath), encryptedPackage[0]);
+            Files.write(Paths.get(encryptedIVPath), encryptedPackage[1]);
+            Files.write(Paths.get(encryptedDataPath), encryptedPackage[2]);
+
+            System.out.println("File encrypted successfully.");
+            System.out.println("Encrypted key saved to: " + encryptedKeyPath);
+            System.out.println("IV saved to: " + encryptedIVPath);
+            System.out.println("Encrypted data saved to: " + encryptedDataPath);
+
+            System.out.println("\nDo you want to decrypt the file? (y/n)");
+            String answer = scanner.nextLine().toLowerCase();
+            if (!answer.equals("y")) {
+                return;
+            }
+
+            // Decrypt file
+            byte[][] decryptPackage = new byte[][]{
+                    Files.readAllBytes(Paths.get(encryptedKeyPath)),
+                    Files.readAllBytes(Paths.get(encryptedIVPath)),
+                    Files.readAllBytes(Paths.get(encryptedDataPath))
+            };
+
+            byte[] decryptedData = crypto.decryptData(
+                    manager.getPkcs11(),
+                    session.getSession(),
+                    selectedPair.getKeyHandle(),
+                    decryptPackage
+            );
+
+            // Save decrypted file
+            String decryptedFilePath = filePath + ".dec";
+            Files.write(Paths.get(decryptedFilePath), decryptedData);
+            System.out.println("File decrypted successfully. Saved to: " + decryptedFilePath);
+
+            // Calculate and display checksums
+            String originalChecksum = getFileChecksum(fileContent);
+            String decryptedChecksum = getFileChecksum(decryptedData);
+
+            System.out.println("\nFile integrity verification:");
+            System.out.println("Original file SHA-256: " + originalChecksum);
+            System.out.println("Decrypted file SHA-256: " + decryptedChecksum);
+
+            if (Arrays.equals(fileContent, decryptedData)) {
+                System.out.println("File integrity verified: Original and decrypted files match.");
+            } else {
+                System.out.println("Warning: Decrypted file does not match original!");
+            }
+        } catch (Exception e) {
+            System.out.println("Error during file encryption/decryption: " + e.getMessage());
+        }
+    }
+
+    private String getFileChecksum(byte[] fileData) throws NoSuchAlgorithmException {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] hash = digest.digest(fileData);
+        return Base64.getEncoder().encodeToString(hash);
+    }
 
     private boolean handleDeviceChange(PKCS11Manager manager) {
         int maxRetries = 3;
@@ -130,7 +289,6 @@ class PKCS11 {
                     continue;
                 }
 
-            
                 if (!getPINFromUser()) {
                     retryCount++;
                     continue;
@@ -223,10 +381,13 @@ class PKCS11 {
         System.out.println("Current device: " + selectedDevice.getLabel());
         System.out.println("1. List Available Certificates");
         System.out.println("2. Sign a Message");
-        System.out.println("3. Encrypt and Decrypt Data");
-        System.out.println("4. List Supported Algorithms");
-        System.out.println("5. Exit");
-        System.out.println("6. Change Device");
+        System.out.println("3. Sign a File");
+        System.out.println("4. Verify File Signature");
+        System.out.println("5. Encrypt and Decrypt Data");
+        System.out.println("6. Encrypt and Decrypt File");
+        System.out.println("7. List Supported Algorithms");
+        System.out.println("8. Exit");
+        System.out.println("9. Change Device");
         System.out.print("Enter your choice: ");
     }
 
@@ -294,12 +455,20 @@ class PKCS11 {
             Scanner scanner = new Scanner(System.in);
             String dataToEncrypt = scanner.nextLine();
 
-            PKCS11Crypto decryptor = new PKCS11Crypto();
+            PKCS11Crypto crypto = new PKCS11Crypto();
 
-            byte[] encryptedData = decryptor.encryptData(dataToEncrypt.getBytes(), selectedPair.getCertificate());
+            // Encrypt data
+            byte[][] encryptedPackage = crypto.encryptData(dataToEncrypt.getBytes(), selectedPair.getCertificate());
             System.out.println("Data encrypted successfully.");
+            System.out.println("Encrypted data (Base64): " + Base64.getEncoder().encodeToString(encryptedPackage[2]));
 
-            byte[] decryptedData = decryptor.decryptData(manager.getPkcs11(), session.getSession(), selectedPair.getKeyHandle(), encryptedData);
+            // Decrypt data
+            byte[] decryptedData = crypto.decryptData(
+                    manager.getPkcs11(),
+                    session.getSession(),
+                    selectedPair.getKeyHandle(),
+                    encryptedPackage
+            );
             System.out.println("Decrypted data: " + new String(decryptedData));
 
             if (dataToEncrypt.equals(new String(decryptedData))) {
@@ -309,10 +478,8 @@ class PKCS11 {
             }
         } catch (IllegalArgumentException e) {
             System.out.println("Invalid input: " + e.getMessage());
-            throw e;
         } catch (Exception e) {
             System.out.println("Error during encryption/decryption: " + e.getMessage());
-            throw e;
         }
     }
 
@@ -338,6 +505,7 @@ class PKCS11 {
         }
     }
 }
+
 
 public class PKCS11Example {
     public static void main(String[] args) {

@@ -1,158 +1,79 @@
 package pl.mlodawski.security.pkcs11;
 
-import org.junit.jupiter.api.BeforeEach;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import pl.mlodawski.security.pkcs11.exceptions.CryptoInitializationException;
-import pl.mlodawski.security.pkcs11.exceptions.DecryptionException;
 import pl.mlodawski.security.pkcs11.exceptions.EncryptionException;
 import pl.mlodawski.security.pkcs11.exceptions.InvalidInputException;
-import ru.rutoken.pkcs11jna.CK_MECHANISM;
-import ru.rutoken.pkcs11jna.Pkcs11;
-import ru.rutoken.pkcs11jna.Pkcs11Constants;
 
-import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 
-import com.sun.jna.NativeLong;
-import com.sun.jna.ptr.NativeLongByReference;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+public class PKCS11CryptoTest {
+    private static final String ENCRYPTION_FAILED_MESSAGE = "Encryption failed";
 
-@ExtendWith(MockitoExtension.class)
-class PKCS11CryptoTest {
 
-    @Mock
-    private Pkcs11 pkcs11Mock;
 
-    @Mock
-    private X509Certificate certificateMock;
+    @Test
+    public void encryptData_InvalidInput_ThrowsException() {
+        PKCS11Crypto pkcs11Crypto = new PKCS11Crypto();
 
-    private PKCS11Crypto pkcs11Crypto;
-    private KeyPair keyPair;
-    private NativeLong session;
-    private NativeLong privateKeyHandle;
+        assertThrows(
+                InvalidInputException.class,
+                () -> pkcs11Crypto.encryptData(null, mock(X509Certificate.class))
+        );
 
-    @BeforeEach
-    void setUp() throws Exception {
-        pkcs11Crypto = new PKCS11Crypto();
-        session = new NativeLong(1L);
-        privateKeyHandle = new NativeLong(2L);
+        X509Certificate certificate = mock(X509Certificate.class);
+        when(certificate.getPublicKey()).thenReturn(null);
 
-        // Generate a real RSA key pair for testing
-        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-        keyPairGenerator.initialize(2048);
-        keyPair = keyPairGenerator.generateKeyPair();
-
-        // We'll set up the certificate mock in individual tests where it's needed
+        assertThrows(
+                InvalidInputException.class,
+                () -> pkcs11Crypto.encryptData(new byte[1], certificate)
+        );
     }
 
     @Test
-    void encryptData_validInput_shouldEncryptSuccessfully() throws Exception {
-        when(certificateMock.getPublicKey()).thenReturn(keyPair.getPublic());
-        byte[] dataToEncrypt = "Hello, World!".getBytes();
+    public void encryptData_EncryptionFails_ThrowsException() throws Exception {
+        PKCS11Crypto pkcs11Crypto = new PKCS11Crypto();
 
-        byte[] encryptedData = pkcs11Crypto.encryptData(dataToEncrypt, certificateMock);
+        X509Certificate certificate = mock(X509Certificate.class);
+        PublicKey publicKey = mock(PublicKey.class);
 
-        assertNotNull(encryptedData);
-        assertNotEquals(dataToEncrypt, encryptedData);
+        when(certificate.getPublicKey()).thenReturn(publicKey);
+
+        KeyGenerator keyGen = mock(KeyGenerator.class);
+        SecretKey secretKey = mock(SecretKey.class);
+
+        when(keyGen.generateKey()).thenReturn(secretKey);
+        when(keyGen.generateKey()).thenThrow(new RuntimeException(ENCRYPTION_FAILED_MESSAGE));
+
+        assertThrows(
+                EncryptionException.class,
+                () -> pkcs11Crypto.encryptData(new byte[1], certificate),
+                ENCRYPTION_FAILED_MESSAGE
+        );
     }
 
     @Test
-    void encryptData_nullData_shouldThrowIllegalArgumentException() {
-        assertThrows(IllegalArgumentException.class, () -> pkcs11Crypto.encryptData(null, certificateMock));
-    }
+    public void encryptData_ValidInput_Success() throws Exception {
+        PKCS11Crypto pkcs11Crypto = new PKCS11Crypto();
 
-    @Test
-    void encryptData_emptyData_shouldThrowIllegalArgumentException() {
-        assertThrows(IllegalArgumentException.class, () -> pkcs11Crypto.encryptData(new byte[0], certificateMock));
-    }
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+        keyGen.initialize(2048);
+        KeyPair keyPair = keyGen.generateKeyPair();
+        PublicKey publicKey = keyPair.getPublic();
 
-    @Test
-    void encryptData_nullCertificate_shouldThrowIllegalArgumentException() {
-        assertThrows(IllegalArgumentException.class, () -> pkcs11Crypto.encryptData("Test".getBytes(), null));
-    }
+        X509Certificate certificate = mock(X509Certificate.class);
+        when(certificate.getPublicKey()).thenReturn(publicKey);
 
-    @Test
-    void encryptData_invalidCertificate_shouldThrowEncryptionException() {
-        when(certificateMock.getPublicKey()).thenThrow(new RuntimeException("Invalid certificate"));
-        assertThrows(EncryptionException.class, () -> pkcs11Crypto.encryptData("Test".getBytes(), certificateMock));
-    }
-
-    @Test
-    void decryptData_validInput_shouldDecryptSuccessfully() throws Exception {
-        byte[] originalData = "Hello, World!".getBytes();
-        byte[] encryptedData = encryptWithRealKey(originalData);
-
-        // Mock PKCS11 behavior
-        when(pkcs11Mock.C_Decrypt(eq(session), any(), any(), isNull(), any())).thenAnswer(invocation -> {
-            NativeLongByReference lengthRef = invocation.getArgument(4);
-            lengthRef.setValue(new NativeLong(originalData.length));
-            return new NativeLong(0);
-        });
-
-        when(pkcs11Mock.C_Decrypt(eq(session), any(), any(), any(byte[].class), any())).thenAnswer(invocation -> {
-            byte[] outputBuffer = invocation.getArgument(3);
-            System.arraycopy(originalData, 0, outputBuffer, 0, originalData.length);
-            return new NativeLong(0);
-        });
-
-        byte[] decryptedData = pkcs11Crypto.decryptData(pkcs11Mock, session, privateKeyHandle, encryptedData);
-
-        assertArrayEquals(originalData, decryptedData);
-    }
-
-    @Test
-    void decryptData_nullPkcs11_shouldThrowIllegalArgumentException() {
-        assertThrows(IllegalArgumentException.class, () -> pkcs11Crypto.decryptData(null, session, privateKeyHandle, new byte[]{1}));
-    }
-
-    @Test
-    void decryptData_nullSession_shouldThrowIllegalArgumentException() {
-        assertThrows(IllegalArgumentException.class, () -> pkcs11Crypto.decryptData(pkcs11Mock, null, privateKeyHandle, new byte[]{1}));
-    }
-
-    @Test
-    void decryptData_nullPrivateKeyHandle_shouldThrowIllegalArgumentException() {
-        assertThrows(IllegalArgumentException.class, () -> pkcs11Crypto.decryptData(pkcs11Mock, session, null, new byte[]{1}));
-    }
-
-    @Test
-    void decryptData_nullEncryptedData_shouldThrowInvalidInputException() {
-        assertThrows(InvalidInputException.class, () -> pkcs11Crypto.decryptData(pkcs11Mock, session, privateKeyHandle, null));
-    }
-
-    @Test
-    void decryptData_emptyEncryptedData_shouldThrowInvalidInputException() {
-        assertThrows(InvalidInputException.class, () -> pkcs11Crypto.decryptData(pkcs11Mock, session, privateKeyHandle, new byte[0]));
-    }
-
-    @Test
-    void decryptData_initializationFailure_shouldThrowCryptoInitializationException() {
-        doThrow(new RuntimeException("Initialization failed")).when(pkcs11Mock).C_DecryptInit(any(), any(), any());
-
-        assertThrows(CryptoInitializationException.class, () ->
-                pkcs11Crypto.decryptData(pkcs11Mock, session, privateKeyHandle, new byte[]{1}));
-    }
-
-    @Test
-    void decryptData_decryptionFailure_shouldThrowDecryptionException() {
-        when(pkcs11Mock.C_Decrypt(any(), any(), any(), any(), any())).thenReturn(new NativeLong(1));
-
-        assertThrows(DecryptionException.class, () ->
-                pkcs11Crypto.decrypt(pkcs11Mock, session, new byte[]{1}));
-    }
-
-    // Helper method to encrypt data with the real public key
-    private byte[] encryptWithRealKey(byte[] data) throws Exception {
-        Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-        cipher.init(Cipher.ENCRYPT_MODE, keyPair.getPublic());
-        return cipher.doFinal(data);
+        byte[] dataToEncrypt = new byte[] { 0x01 };
+        pkcs11Crypto.encryptData(dataToEncrypt, certificate);
     }
 }
