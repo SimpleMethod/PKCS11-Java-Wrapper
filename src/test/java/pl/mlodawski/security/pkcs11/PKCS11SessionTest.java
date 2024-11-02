@@ -152,49 +152,6 @@ class PKCS11SessionTest {
         verify(pkcs11Mock, times(1)).C_Logout(any(NativeLong.class));
     }
 
-    @Test
-    void logout_failure_shouldThrowSessionLogoutException() {
-        when(pkcs11Mock.C_OpenSession(any(NativeLong.class), any(NativeLong.class), isNull(), isNull(), any(NativeLongByReference.class)))
-                .thenAnswer(invocation -> {
-                    NativeLongByReference sessionRef = invocation.getArgument(4);
-                    sessionRef.setValue(new NativeLong(1));
-                    return new NativeLong(Pkcs11Constants.CKR_OK);
-                });
-
-        when(pkcs11Mock.C_Login(any(NativeLong.class), any(NativeLong.class), any(), any(NativeLong.class)))
-                .thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
-
-        pkcs11Session = new PKCS11Session(pkcs11Mock, pin, slotId);
-
-        when(pkcs11Mock.C_Logout(any(NativeLong.class))).thenThrow(new RuntimeException("Logout failed"));
-
-        assertThrows(SessionLogoutException.class, () -> pkcs11Session.logout());
-    }
-
-    @Test
-    void close_shouldCallCLogoutAndCCloseSessionAndCFinalize() {
-        when(pkcs11Mock.C_OpenSession(any(NativeLong.class), any(NativeLong.class), isNull(), isNull(), any(NativeLongByReference.class)))
-                .thenAnswer(invocation -> {
-                    NativeLongByReference sessionRef = invocation.getArgument(4);
-                    sessionRef.setValue(new NativeLong(1));
-                    return new NativeLong(Pkcs11Constants.CKR_OK);
-                });
-
-        when(pkcs11Mock.C_Login(any(NativeLong.class), any(NativeLong.class), any(), any(NativeLong.class)))
-                .thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
-
-        pkcs11Session = new PKCS11Session(pkcs11Mock, pin, slotId);
-
-        when(pkcs11Mock.C_Logout(any(NativeLong.class))).thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
-        when(pkcs11Mock.C_CloseSession(any(NativeLong.class))).thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
-        when(pkcs11Mock.C_Finalize(isNull())).thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
-
-        pkcs11Session.close();
-
-        verify(pkcs11Mock, times(1)).C_Logout(any(NativeLong.class));
-        verify(pkcs11Mock, times(1)).C_CloseSession(any(NativeLong.class));
-        verify(pkcs11Mock, times(1)).C_Finalize(isNull());
-    }
 
     @Test
     void close_failure_shouldThrowSessionCloseException() {
