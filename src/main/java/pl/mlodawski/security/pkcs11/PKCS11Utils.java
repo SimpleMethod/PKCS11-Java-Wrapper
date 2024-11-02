@@ -378,10 +378,20 @@ public class PKCS11Utils {
 
         try {
             NativeLongByReference count = new NativeLongByReference();
-            pkcs11.C_GetMechanismList(slotID, null, count);
+            NativeLong rv = pkcs11.C_GetMechanismList(slotID, null, count);
+            if (rv.longValue() != Pkcs11Constants.CKR_OK) {
+                throw new MechanismListRetrievalException("Failed to get mechanism count, error: " + rv.longValue(),null);
+            }
+
+            if (count.getValue().longValue() == 0) {
+                return new NativeLong[0];
+            }
 
             NativeLong[] mechanismList = new NativeLong[count.getValue().intValue()];
-            pkcs11.C_GetMechanismList(slotID, mechanismList, count);
+            rv = pkcs11.C_GetMechanismList(slotID, mechanismList, count);
+            if (rv.longValue() != Pkcs11Constants.CKR_OK) {
+                throw new MechanismListRetrievalException("Failed to get mechanism list, error: " + rv.longValue(),null);
+            }
 
             return mechanismList;
         } catch (Exception e) {
