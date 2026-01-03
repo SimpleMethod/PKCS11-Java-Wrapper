@@ -10,9 +10,9 @@ import pl.mlodawski.security.pkcs11.PKCS11Signer;
 import pl.mlodawski.security.pkcs11.exceptions.SignatureVerificationException;
 import pl.mlodawski.security.pkcs11.exceptions.SigningException;
 import pl.mlodawski.security.pkcs11.exceptions.SigningInitializationException;
-import ru.rutoken.pkcs11jna.CK_MECHANISM;
-import ru.rutoken.pkcs11jna.Pkcs11;
-import ru.rutoken.pkcs11jna.Pkcs11Constants;
+import pl.mlodawski.security.pkcs11.jna.Cryptoki;
+import pl.mlodawski.security.pkcs11.jna.constants.ReturnValue;
+import pl.mlodawski.security.pkcs11.jna.structure.Mechanism;
 import com.sun.jna.NativeLong;
 import com.sun.jna.ptr.NativeLongByReference;
 
@@ -28,7 +28,7 @@ import static org.mockito.Mockito.*;
 class PKCS11SignerTest {
 
     @Mock
-    private Pkcs11 pkcs11Mock;
+    private Cryptoki pkcs11Mock;
 
     @Mock
     private X509Certificate certificateMock;

@@ -10,10 +10,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import pl.mlodawski.security.pkcs11.exceptions.PKCS11FinalizationException;
 import pl.mlodawski.security.pkcs11.exceptions.PKCS11InitializationException;
 import pl.mlodawski.security.pkcs11.model.PKCS11Device;
-import ru.rutoken.pkcs11jna.CK_SLOT_INFO;
-import ru.rutoken.pkcs11jna.CK_TOKEN_INFO;
-import ru.rutoken.pkcs11jna.Pkcs11;
-import ru.rutoken.pkcs11jna.Pkcs11Constants;
+import pl.mlodawski.security.pkcs11.jna.Cryptoki;
+import pl.mlodawski.security.pkcs11.jna.constants.ReturnValue;
+import pl.mlodawski.security.pkcs11.jna.structure.SlotInfo;
+import pl.mlodawski.security.pkcs11.jna.structure.TokenInfo;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -28,7 +28,7 @@ import static org.mockito.Mockito.*;
 class PKCS11ManagerTest {
 
     @Mock
-    private Pkcs11 pkcs11Mock;
+    private Cryptoki pkcs11Mock;
 
     private Path libraryPathMock;
     private PKCS11Manager pkcs11Manager;
@@ -41,21 +41,21 @@ class PKCS11ManagerTest {
                 .thenAnswer(invocation -> {
                     NativeLongByReference count = invocation.getArgument(2);
                     count.setValue(new NativeLong(1));
-                    return new NativeLong(Pkcs11Constants.CKR_OK);
+                    return new NativeLong(ReturnValue.OK);
                 });
 
         when(pkcs11Mock.C_GetSlotList(anyByte(), any(NativeLong[].class), any(NativeLongByReference.class)))
                 .thenAnswer(invocation -> {
                     NativeLong[] slots = invocation.getArgument(1);
                     slots[0] = new NativeLong(0);
-                    return new NativeLong(Pkcs11Constants.CKR_OK);
+                    return new NativeLong(ReturnValue.OK);
                 });
 
-        when(pkcs11Mock.C_GetSlotInfo(any(NativeLong.class), any(CK_SLOT_INFO.class)))
-                .thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
+        when(pkcs11Mock.C_GetSlotInfo(any(NativeLong.class), any(SlotInfo.class)))
+                .thenReturn(new NativeLong(ReturnValue.OK));
 
-        when(pkcs11Mock.C_GetTokenInfo(any(NativeLong.class), any(CK_TOKEN_INFO.class)))
-                .thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
+        when(pkcs11Mock.C_GetTokenInfo(any(NativeLong.class), any(TokenInfo.class)))
+                .thenReturn(new NativeLong(ReturnValue.OK));
     }
 
     @Test

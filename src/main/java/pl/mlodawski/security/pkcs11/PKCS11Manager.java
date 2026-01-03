@@ -8,7 +8,7 @@ import pl.mlodawski.security.pkcs11.exceptions.PKCS11InitializationException;
 import pl.mlodawski.security.pkcs11.model.DeviceChangeListener;
 import pl.mlodawski.security.pkcs11.model.DeviceState;
 import pl.mlodawski.security.pkcs11.model.PKCS11Device;
-import ru.rutoken.pkcs11jna.Pkcs11;
+import pl.mlodawski.security.pkcs11.jna.Cryptoki;
 
 import eu.europa.esig.dss.token.Pkcs11SignatureToken;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +22,7 @@ import java.util.Optional;
 @Slf4j
 public class PKCS11Manager implements AutoCloseable {
     @Getter
-    private final Pkcs11 pkcs11;
+    private final Cryptoki pkcs11;
     private final Path libraryPath;
     private final PKCS11DeviceManager deviceManager;
 
@@ -167,7 +167,7 @@ public class PKCS11Manager implements AutoCloseable {
             throw new DeviceNotReadyException("Device is not in ready state: " + device.getState(),null);
         }
 
-        return new Pkcs11SignatureToken(libraryPath.toString(), () -> pin.toCharArray());
+        return new Pkcs11SignatureToken(libraryPath.toString(), pin::toCharArray);
     }
 
     /**

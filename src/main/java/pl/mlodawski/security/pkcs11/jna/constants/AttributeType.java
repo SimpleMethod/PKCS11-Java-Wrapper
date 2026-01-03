@@ -1,0 +1,114 @@
+package pl.mlodawski.security.pkcs11.jna.constants;
+
+/**
+ * PKCS#11 attribute types (CKA_*).
+ * Based on OASIS PKCS#11 specification.
+ */
+public final class AttributeType {
+
+    private AttributeType() {}
+
+    public static final long CLASS = 0x00000000L;
+    public static final long TOKEN = 0x00000001L;
+    public static final long PRIVATE = 0x00000002L;
+    public static final long LABEL = 0x00000003L;
+    public static final long APPLICATION = 0x00000010L;
+    public static final long VALUE = 0x00000011L;
+    public static final long OBJECT_ID = 0x00000012L;
+    public static final long CERTIFICATE_TYPE = 0x00000080L;
+    public static final long ISSUER = 0x00000081L;
+    public static final long SERIAL_NUMBER = 0x00000082L;
+    public static final long AC_ISSUER = 0x00000083L;
+    public static final long OWNER = 0x00000084L;
+    public static final long ATTR_TYPES = 0x00000085L;
+    public static final long TRUSTED = 0x00000086L;
+    public static final long CERTIFICATE_CATEGORY = 0x00000087L;
+    public static final long JAVA_MIDP_SECURITY_DOMAIN = 0x00000088L;
+    public static final long URL = 0x00000089L;
+    public static final long HASH_OF_SUBJECT_PUBLIC_KEY = 0x0000008AL;
+    public static final long HASH_OF_ISSUER_PUBLIC_KEY = 0x0000008BL;
+    public static final long CHECK_VALUE = 0x00000090L;
+    public static final long KEY_TYPE = 0x00000100L;
+    public static final long SUBJECT = 0x00000101L;
+    public static final long ID = 0x00000102L;
+    public static final long SENSITIVE = 0x00000103L;
+    public static final long ENCRYPT = 0x00000104L;
+    public static final long DECRYPT = 0x00000105L;
+    public static final long WRAP = 0x00000106L;
+    public static final long UNWRAP = 0x00000107L;
+    public static final long SIGN = 0x00000108L;
+    public static final long SIGN_RECOVER = 0x00000109L;
+    public static final long VERIFY = 0x0000010AL;
+    public static final long VERIFY_RECOVER = 0x0000010BL;
+    public static final long DERIVE = 0x0000010CL;
+    public static final long START_DATE = 0x00000110L;
+    public static final long END_DATE = 0x00000111L;
+    public static final long MODULUS = 0x00000120L;
+    public static final long MODULUS_BITS = 0x00000121L;
+    public static final long PUBLIC_EXPONENT = 0x00000122L;
+    public static final long PRIVATE_EXPONENT = 0x00000123L;
+    public static final long PRIME_1 = 0x00000124L;
+    public static final long PRIME_2 = 0x00000125L;
+    public static final long EXPONENT_1 = 0x00000126L;
+    public static final long EXPONENT_2 = 0x00000127L;
+    public static final long COEFFICIENT = 0x00000128L;
+    public static final long PUBLIC_KEY_INFO = 0x00000129L;
+    public static final long PRIME = 0x00000130L;
+    public static final long SUBPRIME = 0x00000131L;
+    public static final long BASE = 0x00000132L;
+    public static final long PRIME_BITS = 0x00000133L;
+    public static final long SUBPRIME_BITS = 0x00000134L;
+    public static final long VALUE_BITS = 0x00000160L;
+    public static final long VALUE_LEN = 0x00000161L;
+    public static final long EXTRACTABLE = 0x00000162L;
+    public static final long LOCAL = 0x00000163L;
+    public static final long NEVER_EXTRACTABLE = 0x00000164L;
+    public static final long ALWAYS_SENSITIVE = 0x00000165L;
+    public static final long KEY_GEN_MECHANISM = 0x00000166L;
+    public static final long MODIFIABLE = 0x00000170L;
+    public static final long COPYABLE = 0x00000171L;
+    public static final long DESTROYABLE = 0x00000172L;
+    public static final long EC_PARAMS = 0x00000180L;
+    public static final long EC_POINT = 0x00000181L;
+    public static final long ALWAYS_AUTHENTICATE = 0x00000202L;
+    public static final long WRAP_WITH_TRUSTED = 0x00000210L;
+    public static final long WRAP_TEMPLATE = 0x40000211L;
+    public static final long UNWRAP_TEMPLATE = 0x40000212L;
+    public static final long DERIVE_TEMPLATE = 0x40000213L;
+    public static final long OTP_FORMAT = 0x00000220L;
+    public static final long OTP_LENGTH = 0x00000221L;
+    public static final long OTP_TIME_INTERVAL = 0x00000222L;
+    public static final long OTP_USER_FRIENDLY_MODE = 0x00000223L;
+    public static final long OTP_CHALLENGE_REQUIREMENT = 0x00000224L;
+    public static final long OTP_TIME_REQUIREMENT = 0x00000225L;
+    public static final long OTP_COUNTER_REQUIREMENT = 0x00000226L;
+    public static final long OTP_PIN_REQUIREMENT = 0x00000227L;
+    public static final long OTP_COUNTER = 0x0000022EL;
+    public static final long OTP_TIME = 0x0000022FL;
+    public static final long OTP_USER_IDENTIFIER = 0x0000022AL;
+    public static final long OTP_SERVICE_IDENTIFIER = 0x0000022BL;
+    public static final long OTP_SERVICE_LOGO = 0x0000022CL;
+    public static final long OTP_SERVICE_LOGO_TYPE = 0x0000022DL;
+    public static final long GOSTR3410_PARAMS = 0x00000250L;
+    public static final long GOSTR3411_PARAMS = 0x00000251L;
+    public static final long GOST28147_PARAMS = 0x00000252L;
+    public static final long HW_FEATURE_TYPE = 0x00000300L;
+    public static final long RESET_ON_INIT = 0x00000301L;
+    public static final long HAS_RESET = 0x00000302L;
+    public static final long PIXEL_X = 0x00000400L;
+    public static final long PIXEL_Y = 0x00000401L;
+    public static final long RESOLUTION = 0x00000402L;
+    public static final long CHAR_ROWS = 0x00000403L;
+    public static final long CHAR_COLUMNS = 0x00000404L;
+    public static final long COLOR = 0x00000405L;
+    public static final long BITS_PER_PIXEL = 0x00000406L;
+    public static final long CHAR_SETS = 0x00000480L;
+    public static final long ENCODING_METHODS = 0x00000481L;
+    public static final long MIME_TYPES = 0x00000482L;
+    public static final long MECHANISM_TYPE = 0x00000500L;
+    public static final long REQUIRED_CMS_ATTRIBUTES = 0x00000501L;
+    public static final long DEFAULT_CMS_ATTRIBUTES = 0x00000502L;
+    public static final long SUPPORTED_CMS_ATTRIBUTES = 0x00000503L;
+    public static final long ALLOWED_MECHANISMS = 0x40000600L;
+    public static final long VENDOR_DEFINED = 0x80000000L;
+}

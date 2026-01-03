@@ -9,7 +9,7 @@ import pl.mlodawski.security.pkcs11.exceptions.CryptoInitializationException;
 import pl.mlodawski.security.pkcs11.exceptions.DecryptionException;
 import pl.mlodawski.security.pkcs11.exceptions.EncryptionException;
 import pl.mlodawski.security.pkcs11.exceptions.InvalidInputException;
-import ru.rutoken.pkcs11jna.Pkcs11;
+import pl.mlodawski.security.pkcs11.jna.Cryptoki;
 
 import javax.crypto.Cipher;
 import java.security.KeyPair;
@@ -27,7 +27,7 @@ import static org.mockito.Mockito.*;
 class PKCS11RSACryptoTest {
 
     @Mock
-    private Pkcs11 pkcs11Mock;
+    private Cryptoki pkcs11Mock;
 
     @Mock
     private X509Certificate certificateMock;
@@ -86,16 +86,16 @@ class PKCS11RSACryptoTest {
         byte[] originalData = "Hello, World!".getBytes();
         byte[] encryptedData = encryptWithRealKey(originalData);
 
-        // Mock PKCS11 behavior
-        when(pkcs11Mock.C_Decrypt(eq(session), any(), any(), isNull(), any())).thenAnswer(invocation -> {
-            NativeLongByReference lengthRef = invocation.getArgument(4);
-            lengthRef.setValue(new NativeLong(originalData.length));
-            return new NativeLong(0);
-        });
+        // Mock C_DecryptInit to return success
+        when(pkcs11Mock.C_DecryptInit(any(NativeLong.class), any(pl.mlodawski.security.pkcs11.jna.structure.Mechanism.class), any(NativeLong.class)))
+                .thenReturn(new NativeLong(0));
 
+        // Mock PKCS11 behavior - implementation now calls C_Decrypt once with a buffer
         when(pkcs11Mock.C_Decrypt(eq(session), any(), any(), any(byte[].class), any())).thenAnswer(invocation -> {
             byte[] outputBuffer = invocation.getArgument(3);
+            NativeLongByReference lengthRef = invocation.getArgument(4);
             System.arraycopy(originalData, 0, outputBuffer, 0, originalData.length);
+            lengthRef.setValue(new NativeLong(originalData.length));
             return new NativeLong(0);
         });
 
@@ -131,7 +131,8 @@ class PKCS11RSACryptoTest {
 
     @Test
     void decryptData_initializationFailure_shouldThrowCryptoInitializationException() {
-        doThrow(new RuntimeException("Initialization failed")).when(pkcs11Mock).C_DecryptInit(any(), any(), any());
+        doThrow(new RuntimeException("Initialization failed")).when(pkcs11Mock)
+                .C_DecryptInit(any(NativeLong.class), any(pl.mlodawski.security.pkcs11.jna.structure.Mechanism.class), any(NativeLong.class));
 
         assertThrows(CryptoInitializationException.class, () ->
                 pkcs11Crypto.decryptData(pkcs11Mock, session, privateKeyHandle, new byte[]{1}));

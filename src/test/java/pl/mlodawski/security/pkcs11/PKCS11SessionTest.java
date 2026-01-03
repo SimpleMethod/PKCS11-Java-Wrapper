@@ -10,8 +10,8 @@ import pl.mlodawski.security.pkcs11.exceptions.SessionLoginException;
 import pl.mlodawski.security.pkcs11.exceptions.SessionLogoutException;
 import pl.mlodawski.security.pkcs11.exceptions.SessionOpenException;
 import pl.mlodawski.security.pkcs11.exceptions.SessionResetException;
-import ru.rutoken.pkcs11jna.Pkcs11;
-import ru.rutoken.pkcs11jna.Pkcs11Constants;
+import pl.mlodawski.security.pkcs11.jna.Cryptoki;
+import pl.mlodawski.security.pkcs11.jna.constants.ReturnValue;
 import com.sun.jna.NativeLong;
 import com.sun.jna.ptr.NativeLongByReference;
 
@@ -23,7 +23,7 @@ import static org.mockito.Mockito.*;
 class PKCS11SessionTest {
 
     @Mock
-    private Pkcs11 pkcs11Mock;
+    private Cryptoki pkcs11Mock;
 
     private PKCS11Session pkcs11Session;
     private String pin;
@@ -41,11 +41,11 @@ class PKCS11SessionTest {
                 .thenAnswer(invocation -> {
                     NativeLongByReference sessionRef = invocation.getArgument(4);
                     sessionRef.setValue(new NativeLong(1));
-                    return new NativeLong(Pkcs11Constants.CKR_OK);
+                    return new NativeLong(ReturnValue.OK);
                 });
 
         when(pkcs11Mock.C_Login(any(NativeLong.class), any(NativeLong.class), any(), any(NativeLong.class)))
-                .thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
+                .thenReturn(new NativeLong(ReturnValue.OK));
 
         pkcs11Session = new PKCS11Session(pkcs11Mock, pin, slotId);
 
@@ -77,7 +77,7 @@ class PKCS11SessionTest {
                 .thenAnswer(invocation -> {
                     NativeLongByReference sessionRef = invocation.getArgument(4);
                     sessionRef.setValue(new NativeLong(1));
-                    return new NativeLong(Pkcs11Constants.CKR_OK);
+                    return new NativeLong(ReturnValue.OK);
                 });
 
         when(pkcs11Mock.C_Login(any(NativeLong.class), any(NativeLong.class), any(), any(NativeLong.class)))
@@ -92,17 +92,17 @@ class PKCS11SessionTest {
                 .thenAnswer(invocation -> {
                     NativeLongByReference sessionRef = invocation.getArgument(4);
                     sessionRef.setValue(new NativeLong(1));
-                    return new NativeLong(Pkcs11Constants.CKR_OK);
+                    return new NativeLong(ReturnValue.OK);
                 });
 
         when(pkcs11Mock.C_Login(any(NativeLong.class), any(NativeLong.class), any(), any(NativeLong.class)))
-                .thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
+                .thenReturn(new NativeLong(ReturnValue.OK));
 
         pkcs11Session = new PKCS11Session(pkcs11Mock, pin, slotId);
 
-        when(pkcs11Mock.C_Logout(any(NativeLong.class))).thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
+        when(pkcs11Mock.C_Logout(any(NativeLong.class))).thenReturn(new NativeLong(ReturnValue.OK));
         when(pkcs11Mock.C_Login(any(NativeLong.class), any(NativeLong.class), any(), any(NativeLong.class)))
-                .thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
+                .thenReturn(new NativeLong(ReturnValue.OK));
 
         pkcs11Session.resetSession();
 
@@ -116,15 +116,15 @@ class PKCS11SessionTest {
                 .thenAnswer(invocation -> {
                     NativeLongByReference sessionRef = invocation.getArgument(4);
                     sessionRef.setValue(new NativeLong(1));
-                    return new NativeLong(Pkcs11Constants.CKR_OK);
+                    return new NativeLong(ReturnValue.OK);
                 });
 
         when(pkcs11Mock.C_Login(any(NativeLong.class), any(NativeLong.class), any(), any(NativeLong.class)))
-                .thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
+                .thenReturn(new NativeLong(ReturnValue.OK));
 
         pkcs11Session = new PKCS11Session(pkcs11Mock, pin, slotId);
 
-        when(pkcs11Mock.C_Logout(any(NativeLong.class))).thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
+        when(pkcs11Mock.C_Logout(any(NativeLong.class))).thenReturn(new NativeLong(ReturnValue.OK));
         when(pkcs11Mock.C_Login(any(NativeLong.class), any(NativeLong.class), any(), any(NativeLong.class)))
                 .thenThrow(new RuntimeException("Login failed"));
 
@@ -137,15 +137,15 @@ class PKCS11SessionTest {
                 .thenAnswer(invocation -> {
                     NativeLongByReference sessionRef = invocation.getArgument(4);
                     sessionRef.setValue(new NativeLong(1));
-                    return new NativeLong(Pkcs11Constants.CKR_OK);
+                    return new NativeLong(ReturnValue.OK);
                 });
 
         when(pkcs11Mock.C_Login(any(NativeLong.class), any(NativeLong.class), any(), any(NativeLong.class)))
-                .thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
+                .thenReturn(new NativeLong(ReturnValue.OK));
 
         pkcs11Session = new PKCS11Session(pkcs11Mock, pin, slotId);
 
-        when(pkcs11Mock.C_Logout(any(NativeLong.class))).thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
+        when(pkcs11Mock.C_Logout(any(NativeLong.class))).thenReturn(new NativeLong(ReturnValue.OK));
 
         pkcs11Session.logout();
 
@@ -159,11 +159,11 @@ class PKCS11SessionTest {
                 .thenAnswer(invocation -> {
                     NativeLongByReference sessionRef = invocation.getArgument(4);
                     sessionRef.setValue(new NativeLong(1));
-                    return new NativeLong(Pkcs11Constants.CKR_OK);
+                    return new NativeLong(ReturnValue.OK);
                 });
 
         when(pkcs11Mock.C_Login(any(NativeLong.class), any(NativeLong.class), any(), any(NativeLong.class)))
-                .thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
+                .thenReturn(new NativeLong(ReturnValue.OK));
 
         pkcs11Session = new PKCS11Session(pkcs11Mock, pin, slotId);
 

@@ -5,13 +5,19 @@ import pl.mlodawski.security.pkcs11.exceptions.*;
 import pl.mlodawski.security.pkcs11.model.CertificateInfo;
 import pl.mlodawski.security.pkcs11.model.KeyCertificatePair;
 import pl.mlodawski.security.pkcs11.model.SupportedAlgorithm;
-import ru.rutoken.pkcs11jna.*;
+import pl.mlodawski.security.pkcs11.jna.Cryptoki;
+import pl.mlodawski.security.pkcs11.jna.constants.AttributeType;
+import pl.mlodawski.security.pkcs11.jna.constants.MechanismFlags;
+import pl.mlodawski.security.pkcs11.jna.constants.MechanismType;
+import pl.mlodawski.security.pkcs11.jna.constants.ObjectClass;
+import pl.mlodawski.security.pkcs11.jna.constants.ReturnValue;
+import pl.mlodawski.security.pkcs11.jna.structure.MechanismInfo;
+import com.sun.jna.Native;
 import com.sun.jna.NativeLong;
 import com.sun.jna.ptr.NativeLongByReference;
 import com.sun.jna.Memory;
 
 import java.io.ByteArrayInputStream;
-import java.lang.reflect.Field;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -33,7 +39,7 @@ public class PKCS11Utils {
      * @throws IllegalArgumentException if pkcs11 or session is null
      * @throws RuntimeException if there is an error finding the private keys and certificates
      */
-    public List<KeyCertificatePair> findPrivateKeysAndCertificates(Pkcs11 pkcs11, NativeLong session) {
+    public List<KeyCertificatePair> findPrivateKeysAndCertificates(Cryptoki pkcs11, NativeLong session) {
         if (pkcs11 == null) {
             throw new IllegalArgumentException("pkcs11 cannot be null");
         }
@@ -114,7 +120,7 @@ public class PKCS11Utils {
      * @throws IllegalArgumentException if pkcs11 or session is null
      * @throws RuntimeException         if there is an error listing the supported algorithms
      */
-    public List<SupportedAlgorithm> listSupportedAlgorithms(Pkcs11 pkcs11, NativeLong session, int slotID) {
+    public List<SupportedAlgorithm> listSupportedAlgorithms(Cryptoki pkcs11, NativeLong session, int slotID) {
         if (pkcs11 == null) {
             throw new IllegalArgumentException("pkcs11 cannot be null");
         }
@@ -128,10 +134,10 @@ public class PKCS11Utils {
             NativeLong[] mechanismList = getMechanismList(pkcs11, new NativeLong(slotID));
 
             for (NativeLong mechanism : mechanismList) {
-                CK_MECHANISM_INFO mechanismInfo = new CK_MECHANISM_INFO();
+                MechanismInfo mechanismInfo = new MechanismInfo();
                 NativeLong rv = pkcs11.C_GetMechanismInfo(new NativeLong(slotID), mechanism, mechanismInfo);
 
-                if (rv.longValue() == Pkcs11Constants.CKR_OK) {
+                if (ReturnValue.isSuccess(rv)) {
                     String mechanismName = getMechanismName(mechanism.longValue());
                     SupportedAlgorithm.AlgorithmType type = getAlgorithmType(mechanismInfo);
                     String mechanismCode = String.valueOf(mechanism.longValue());
@@ -156,7 +162,7 @@ public class PKCS11Utils {
      * @throws IllegalArgumentException if pkcs11 or session is null
      * @throws RuntimeException if an error occurs while finding certificates
      */
-    Map<String, NativeLong> findAllCertificates(Pkcs11 pkcs11, NativeLong session) {
+    Map<String, NativeLong> findAllCertificates(Cryptoki pkcs11, NativeLong session) {
         if (pkcs11 == null) {
             throw new IllegalArgumentException("pkcs11 cannot be null");
         }
@@ -167,15 +173,18 @@ public class PKCS11Utils {
         Map<String, NativeLong> certificateMap = new HashMap<>();
 
         try {
-            CK_ATTRIBUTE[] template = (CK_ATTRIBUTE[]) new CK_ATTRIBUTE().toArray(1);
+            int attrSize = NativeLong.SIZE + Native.POINTER_SIZE + NativeLong.SIZE;
+            Memory template = new Memory(attrSize);
+            template.clear();
 
-            Memory classMemory = new Memory(NativeLong.SIZE);
-            classMemory.setNativeLong(0, new NativeLong(Pkcs11Constants.CKO_CERTIFICATE));
-            template[0].type = new NativeLong(Pkcs11Constants.CKA_CLASS);
-            template[0].pValue = classMemory;
-            template[0].ulValueLen = new NativeLong(NativeLong.SIZE);
+            Memory valueMemory = new Memory(NativeLong.SIZE);
+            valueMemory.setNativeLong(0, new NativeLong(ObjectClass.CERTIFICATE));
 
-            pkcs11.C_FindObjectsInit(session, template, new NativeLong(template.length));
+            template.setNativeLong(0, new NativeLong(AttributeType.CLASS));
+            template.setPointer(NativeLong.SIZE, valueMemory);
+            template.setNativeLong(NativeLong.SIZE + Native.POINTER_SIZE, new NativeLong(NativeLong.SIZE));
+
+            pkcs11.C_FindObjectsInit(session, template, new NativeLong(1));
             NativeLongByReference count = new NativeLongByReference();
             NativeLong[] certHandle = new NativeLong[1];
 
@@ -205,7 +214,7 @@ public class PKCS11Utils {
      * @throws IllegalArgumentException if pkcs11 or session is null
      * @throws RuntimeException if there is an error finding private keys
      */
-    Map<String, NativeLong> findAllPrivateKeys(Pkcs11 pkcs11, NativeLong session) {
+    Map<String, NativeLong> findAllPrivateKeys(Cryptoki pkcs11, NativeLong session) {
         if (pkcs11 == null) {
             throw new IllegalArgumentException("pkcs11 cannot be null");
         }
@@ -216,15 +225,18 @@ public class PKCS11Utils {
         Map<String, NativeLong> privateKeyMap = new HashMap<>();
 
         try {
-            CK_ATTRIBUTE[] template = (CK_ATTRIBUTE[]) new CK_ATTRIBUTE().toArray(1);
+            int attrSize = NativeLong.SIZE + Native.POINTER_SIZE + NativeLong.SIZE;
+            Memory template = new Memory(attrSize);
+            template.clear();
 
-            Memory classMemory = new Memory(NativeLong.SIZE);
-            classMemory.setNativeLong(0, new NativeLong(Pkcs11Constants.CKO_PRIVATE_KEY));
-            template[0].type = new NativeLong(Pkcs11Constants.CKA_CLASS);
-            template[0].pValue = classMemory;
-            template[0].ulValueLen = new NativeLong(NativeLong.SIZE);
+            Memory valueMemory = new Memory(NativeLong.SIZE);
+            valueMemory.setNativeLong(0, new NativeLong(ObjectClass.PRIVATE_KEY));
 
-            pkcs11.C_FindObjectsInit(session, template, new NativeLong(template.length));
+            template.setNativeLong(0, new NativeLong(AttributeType.CLASS));
+            template.setPointer(NativeLong.SIZE, valueMemory);
+            template.setNativeLong(NativeLong.SIZE + Native.POINTER_SIZE, new NativeLong(NativeLong.SIZE));
+
+            pkcs11.C_FindObjectsInit(session, template, new NativeLong(1));
             NativeLongByReference count = new NativeLongByReference();
             NativeLong[] keyHandle = new NativeLong[1];
 
@@ -255,7 +267,7 @@ public class PKCS11Utils {
      * @throws IllegalArgumentException if pkcs11, session, or objectHandle is null
      * @throws RuntimeException         if an error occurs while getting the CKA_ID attribute
      */
-    String getCKA_ID(Pkcs11 pkcs11, NativeLong session, NativeLong objectHandle) {
+    String getCKA_ID(Cryptoki pkcs11, NativeLong session, NativeLong objectHandle) {
         if (pkcs11 == null) {
             throw new IllegalArgumentException("pkcs11 cannot be null");
         }
@@ -267,18 +279,27 @@ public class PKCS11Utils {
         }
 
         try {
-            CK_ATTRIBUTE[] template = (CK_ATTRIBUTE[]) new CK_ATTRIBUTE().toArray(1);
-            template[0].type = new NativeLong(Pkcs11Constants.CKA_ID);
-            template[0].pValue = null;
-            template[0].ulValueLen = new NativeLong(0);
+            int attrSize = NativeLong.SIZE + Native.POINTER_SIZE + NativeLong.SIZE;
+            int pValueOffset = NativeLong.SIZE;
+            int ulValueLenOffset = NativeLong.SIZE + Native.POINTER_SIZE;
+
+            Memory template = new Memory(attrSize);
+            template.clear();
+            template.setNativeLong(0, new NativeLong(AttributeType.ID));
 
             pkcs11.C_GetAttributeValue(session, objectHandle, template, new NativeLong(1));
 
-            byte[] ckaId = new byte[(int) template[0].ulValueLen.longValue()];
-            Memory ckaIdMemory = new Memory(ckaId.length);
-            template[0].pValue = ckaIdMemory;
+            int len = template.getNativeLong(ulValueLenOffset).intValue();
+            if (len <= 0) {
+                return "";
+            }
+
+            Memory ckaIdMemory = new Memory(len);
+            template.setPointer(pValueOffset, ckaIdMemory);
+            template.setNativeLong(ulValueLenOffset, new NativeLong(len));
+
             pkcs11.C_GetAttributeValue(session, objectHandle, template, new NativeLong(1));
-            ckaIdMemory.read(0, ckaId, 0, ckaId.length);
+            byte[] ckaId = ckaIdMemory.getByteArray(0, len);
 
             return bytesToHex(ckaId);
         } catch (Exception e) {
@@ -297,7 +318,7 @@ public class PKCS11Utils {
      * @throws IllegalArgumentException if pkcs11, session, or certHandle is null
      * @throws RuntimeException if there is an error retrieving or creating the X509Certificate
      */
-    X509Certificate getCertificate(Pkcs11 pkcs11, NativeLong session, NativeLong certHandle) {
+    X509Certificate getCertificate(Cryptoki pkcs11, NativeLong session, NativeLong certHandle) {
         if (pkcs11 == null) {
             throw new IllegalArgumentException("pkcs11 cannot be null");
         }
@@ -309,18 +330,27 @@ public class PKCS11Utils {
         }
 
         try {
-            CK_ATTRIBUTE[] template = (CK_ATTRIBUTE[]) new CK_ATTRIBUTE().toArray(1);
-            template[0].type = new NativeLong(Pkcs11Constants.CKA_VALUE);
-            template[0].pValue = null;
-            template[0].ulValueLen = new NativeLong(0);
+            int attrSize = NativeLong.SIZE + Native.POINTER_SIZE + NativeLong.SIZE;
+            int pValueOffset = NativeLong.SIZE;
+            int ulValueLenOffset = NativeLong.SIZE + Native.POINTER_SIZE;
+
+            Memory template = new Memory(attrSize);
+            template.clear();
+            template.setNativeLong(0, new NativeLong(AttributeType.VALUE));
 
             pkcs11.C_GetAttributeValue(session, certHandle, template, new NativeLong(1));
 
-            byte[] certBytes = new byte[(int) template[0].ulValueLen.longValue()];
-            Memory certMemory = new Memory(certBytes.length);
-            template[0].pValue = certMemory;
+            int len = template.getNativeLong(ulValueLenOffset).intValue();
+            if (len <= 0) {
+                throw new CertificateCreationException("Certificate has invalid length", null);
+            }
+
+            Memory certMemory = new Memory(len);
+            template.setPointer(pValueOffset, certMemory);
+            template.setNativeLong(ulValueLenOffset, new NativeLong(len));
+
             pkcs11.C_GetAttributeValue(session, certHandle, template, new NativeLong(1));
-            certMemory.read(0, certBytes, 0, certBytes.length);
+            byte[] certBytes = certMemory.getByteArray(0, len);
 
             CertificateFactory cf = CertificateFactory.getInstance("X.509");
             return (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(certBytes));
@@ -368,7 +398,7 @@ public class PKCS11Utils {
      * @throws IllegalArgumentException if pkcs11 or slotID is null
      * @throws RuntimeException if an error occurred while retrieving the mechanism list
      */
-    NativeLong[] getMechanismList(Pkcs11 pkcs11, NativeLong slotID) {
+    NativeLong[] getMechanismList(Cryptoki pkcs11, NativeLong slotID) {
         if (pkcs11 == null) {
             throw new IllegalArgumentException("pkcs11 cannot be null");
         }
@@ -379,7 +409,7 @@ public class PKCS11Utils {
         try {
             NativeLongByReference count = new NativeLongByReference();
             NativeLong rv = pkcs11.C_GetMechanismList(slotID, null, count);
-            if (rv.longValue() != Pkcs11Constants.CKR_OK) {
+            if (!ReturnValue.isSuccess(rv)) {
                 throw new MechanismListRetrievalException("Failed to get mechanism count, error: " + rv.longValue(),null);
             }
 
@@ -389,7 +419,7 @@ public class PKCS11Utils {
 
             NativeLong[] mechanismList = new NativeLong[count.getValue().intValue()];
             rv = pkcs11.C_GetMechanismList(slotID, mechanismList, count);
-            if (rv.longValue() != Pkcs11Constants.CKR_OK) {
+            if (!ReturnValue.isSuccess(rv)) {
                 throw new MechanismListRetrievalException("Failed to get mechanism list, error: " + rv.longValue(),null);
             }
 
@@ -410,18 +440,7 @@ public class PKCS11Utils {
      */
     String getMechanismName(long mechanismCode) {
         try {
-            for (Field field : Pkcs11Constants.class.getDeclaredFields()) {
-                if (field.getName().startsWith("CKM_")) {
-                    try {
-                        if (field.getLong(null) == mechanismCode) {
-                            return field.getName();
-                        }
-                    } catch (IllegalAccessException e) {
-                        log.error("Error accessing field: {}", field.getName(), e);
-                    }
-                }
-            }
-            return "UNKNOWN_MECHANISM_" + mechanismCode;
+            return MechanismType.getName(mechanismCode);
         } catch (Exception e) {
             log.error("Error determining mechanism name", e);
             throw new MechanismNameRetrievalException("Error determining mechanism name", e);
@@ -431,12 +450,12 @@ public class PKCS11Utils {
     /**
      * Gets the algorithm type based on the given mechanism info.
      *
-     * @param mechanismInfo The CK_MECHANISM_INFO object containing the mechanism information.
+     * @param mechanismInfo The MechanismInfo object containing the mechanism information.
      * @return The algorithm type corresponding to the given mechanism info.
      * @throws IllegalArgumentException If mechanismInfo is null.
      * @throws RuntimeException If there is an error determining the algorithm type.
      */
-    SupportedAlgorithm.AlgorithmType getAlgorithmType(CK_MECHANISM_INFO mechanismInfo) {
+    SupportedAlgorithm.AlgorithmType getAlgorithmType(MechanismInfo mechanismInfo) {
         if (mechanismInfo == null) {
             throw new IllegalArgumentException("mechanismInfo cannot be null");
         }
@@ -449,16 +468,16 @@ public class PKCS11Utils {
             long flags = mechanismInfo.flags.longValue();
 
             Map<Long, SupportedAlgorithm.AlgorithmType> flagToType = Map.of(
-                    Pkcs11Constants.CKF_SIGN, SupportedAlgorithm.AlgorithmType.SIGNATURE,
-                    Pkcs11Constants.CKF_VERIFY, SupportedAlgorithm.AlgorithmType.VERIFICATION,
-                    Pkcs11Constants.CKF_ENCRYPT, SupportedAlgorithm.AlgorithmType.ENCRYPTION,
-                    Pkcs11Constants.CKF_DECRYPT, SupportedAlgorithm.AlgorithmType.DECRYPTION,
-                    Pkcs11Constants.CKF_DIGEST, SupportedAlgorithm.AlgorithmType.DIGEST,
-                    Pkcs11Constants.CKF_DERIVE, SupportedAlgorithm.AlgorithmType.KEY_AGREEMENT,
-                    Pkcs11Constants.CKF_GENERATE, SupportedAlgorithm.AlgorithmType.KEY_GENERATION,
-                    Pkcs11Constants.CKF_GENERATE_KEY_PAIR, SupportedAlgorithm.AlgorithmType.KEY_PAIR_GENERATION,
-                    Pkcs11Constants.CKF_WRAP, SupportedAlgorithm.AlgorithmType.WRAP,
-                    Pkcs11Constants.CKF_UNWRAP, SupportedAlgorithm.AlgorithmType.UNWRAP
+                    MechanismFlags.SIGN, SupportedAlgorithm.AlgorithmType.SIGNATURE,
+                    MechanismFlags.VERIFY, SupportedAlgorithm.AlgorithmType.VERIFICATION,
+                    MechanismFlags.ENCRYPT, SupportedAlgorithm.AlgorithmType.ENCRYPTION,
+                    MechanismFlags.DECRYPT, SupportedAlgorithm.AlgorithmType.DECRYPTION,
+                    MechanismFlags.DIGEST, SupportedAlgorithm.AlgorithmType.DIGEST,
+                    MechanismFlags.DERIVE, SupportedAlgorithm.AlgorithmType.KEY_AGREEMENT,
+                    MechanismFlags.GENERATE, SupportedAlgorithm.AlgorithmType.KEY_GENERATION,
+                    MechanismFlags.GENERATE_KEY_PAIR, SupportedAlgorithm.AlgorithmType.KEY_PAIR_GENERATION,
+                    MechanismFlags.WRAP, SupportedAlgorithm.AlgorithmType.WRAP,
+                    MechanismFlags.UNWRAP, SupportedAlgorithm.AlgorithmType.UNWRAP
             );
 
             return flagToType.entrySet().stream()

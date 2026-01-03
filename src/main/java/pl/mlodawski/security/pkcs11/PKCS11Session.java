@@ -4,21 +4,23 @@ package pl.mlodawski.security.pkcs11;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import pl.mlodawski.security.pkcs11.exceptions.*;
-import ru.rutoken.pkcs11jna.Pkcs11;
-import ru.rutoken.pkcs11jna.Pkcs11Constants;
+import pl.mlodawski.security.pkcs11.jna.Cryptoki;
+import pl.mlodawski.security.pkcs11.jna.constants.ReturnValue;
+import pl.mlodawski.security.pkcs11.jna.constants.SessionFlags;
+import pl.mlodawski.security.pkcs11.jna.constants.UserType;
 import com.sun.jna.NativeLong;
 import com.sun.jna.ptr.NativeLongByReference;
 
 @Slf4j
 public class PKCS11Session implements AutoCloseable {
-    private final Pkcs11 pkcs11;
+    private final Cryptoki pkcs11;
     @Getter
     private final NativeLong session;
     private final String pin;
     private volatile boolean isLoggedIn;
     private volatile boolean isSessionOpen;
 
-    public PKCS11Session(Pkcs11 pkcs11, String pin, int slotId) {
+    public PKCS11Session(Cryptoki pkcs11, String pin, int slotId) {
         if (pkcs11 == null) {
             throw new IllegalArgumentException("pkcs11 cannot be null");
         }
@@ -46,13 +48,13 @@ public class PKCS11Session implements AutoCloseable {
             NativeLongByReference sessionRef = new NativeLongByReference();
             NativeLong rv = pkcs11.C_OpenSession(
                     new NativeLong(slotId),
-                    new NativeLong(Pkcs11Constants.CKF_SERIAL_SESSION | Pkcs11Constants.CKF_RW_SESSION),
+                    new NativeLong(SessionFlags.SERIAL_SESSION | SessionFlags.RW_SESSION),
                     null,
                     null,
                     sessionRef
             );
 
-            if (rv.longValue() != Pkcs11Constants.CKR_OK) {
+            if (!ReturnValue.isSuccess(rv)) {
                 throw new SessionOpenException("Failed to open session, error: " + rv.longValue(),null);
             }
 
@@ -91,11 +93,11 @@ public class PKCS11Session implements AutoCloseable {
         }
 
         try {
-            NativeLong rv = pkcs11.C_Login(session, new NativeLong(Pkcs11Constants.CKU_USER),
+            NativeLong rv = pkcs11.C_Login(session, new NativeLong(UserType.USER),
                     pin.getBytes(), new NativeLong(pin.length()));
 
-            if (rv.longValue() != Pkcs11Constants.CKR_OK &&
-                    rv.longValue() != Pkcs11Constants.CKR_USER_ALREADY_LOGGED_IN) {
+            if (!ReturnValue.isSuccess(rv) &&
+                    rv.longValue() != ReturnValue.USER_ALREADY_LOGGED_IN) {
                 throw new SessionLoginException("Failed to login, error: " + rv.longValue(),null);
             }
 
@@ -122,8 +124,8 @@ public class PKCS11Session implements AutoCloseable {
 
         try {
             NativeLong rv = pkcs11.C_Logout(session);
-            if (rv.longValue() != Pkcs11Constants.CKR_OK &&
-                    rv.longValue() != Pkcs11Constants.CKR_USER_NOT_LOGGED_IN) {
+            if (!ReturnValue.isSuccess(rv) &&
+                    rv.longValue() != ReturnValue.USER_NOT_LOGGED_IN) {
                 log.warn("Logout returned unexpected code: {}", rv.longValue());
             }
         } catch (Exception e) {
@@ -175,8 +177,8 @@ public class PKCS11Session implements AutoCloseable {
         try {
             logout();
             NativeLong rv = pkcs11.C_CloseSession(session);
-            if (rv.longValue() != Pkcs11Constants.CKR_OK &&
-                    rv.longValue() != Pkcs11Constants.CKR_SESSION_HANDLE_INVALID) {
+            if (!ReturnValue.isSuccess(rv) &&
+                    rv.longValue() != ReturnValue.SESSION_HANDLE_INVALID) {
                 throw new SessionCloseException("Failed to close session, error: " + rv.longValue(),null);
             }
         } catch (Exception e) {

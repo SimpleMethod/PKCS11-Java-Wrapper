@@ -4,10 +4,11 @@ import com.sun.jna.NativeLong;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import pl.mlodawski.security.pkcs11.exceptions.DeviceInfoRetrievalException;
-import ru.rutoken.pkcs11jna.CK_SLOT_INFO;
-import ru.rutoken.pkcs11jna.CK_TOKEN_INFO;
-import ru.rutoken.pkcs11jna.Pkcs11;
-import ru.rutoken.pkcs11jna.Pkcs11Constants;
+import pl.mlodawski.security.pkcs11.jna.Cryptoki;
+import pl.mlodawski.security.pkcs11.jna.constants.ReturnValue;
+import pl.mlodawski.security.pkcs11.jna.constants.TokenFlags;
+import pl.mlodawski.security.pkcs11.jna.structure.SlotInfo;
+import pl.mlodawski.security.pkcs11.jna.structure.TokenInfo;
 
 import java.util.*;
 
@@ -15,13 +16,13 @@ import java.util.*;
 @Getter
 public class PKCS11Device {
     private final NativeLong slotId;
-    private final Pkcs11 pkcs11;
+    private final Cryptoki pkcs11;
     private final String label;
     private final String manufacturer;
     private final String model;
     private final String serialNumber;
-    private final CK_SLOT_INFO slotInfo;
-    private final CK_TOKEN_INFO tokenInfo;
+    private final SlotInfo slotInfo;
+    private final TokenInfo tokenInfo;
     private final Set<DeviceCapability> capabilities;
     private volatile DeviceState state;
 
@@ -29,12 +30,12 @@ public class PKCS11Device {
      * Constructs a PKCS11Device instance.
      *
      * @param slotId    the slot ID of the device
-     * @param pkcs11    the PKCS11 instance
+     * @param pkcs11    the Cryptoki instance
      * @param slotInfo  the slot information
      * @param tokenInfo the token information
      * @throws IllegalArgumentException if any required parameter is null
      */
-    public PKCS11Device(NativeLong slotId, Pkcs11 pkcs11, CK_SLOT_INFO slotInfo, CK_TOKEN_INFO tokenInfo) {
+    public PKCS11Device(NativeLong slotId, Cryptoki pkcs11, SlotInfo slotInfo, TokenInfo tokenInfo) {
         if (slotId == null || pkcs11 == null || slotInfo == null || tokenInfo == null) {
             throw new IllegalArgumentException("All constructor parameters are required");
         }
@@ -62,19 +63,19 @@ public class PKCS11Device {
         try {
             long flags = tokenInfo.flags.longValue();
 
-            if ((flags & Pkcs11Constants.CKF_TOKEN_PRESENT) == 0) {
+            if (!TokenFlags.hasFlag(flags, TokenFlags.TOKEN_PRESENT)) {
                 return DeviceState.NOT_PRESENT;
             }
 
-            if ((flags & Pkcs11Constants.CKF_TOKEN_INITIALIZED) == 0) {
+            if (!TokenFlags.hasFlag(flags, TokenFlags.TOKEN_INITIALIZED)) {
                 return DeviceState.NOT_INITIALIZED;
             }
 
-            if ((flags & Pkcs11Constants.CKF_USER_PIN_INITIALIZED) == 0) {
+            if (!TokenFlags.hasFlag(flags, TokenFlags.USER_PIN_INITIALIZED)) {
                 return DeviceState.PIN_NOT_INITIALIZED;
             }
 
-            if ((flags & Pkcs11Constants.CKF_USER_PIN_LOCKED) != 0) {
+            if (TokenFlags.hasFlag(flags, TokenFlags.USER_PIN_LOCKED)) {
                 return DeviceState.PIN_LOCKED;
             }
 
@@ -95,25 +96,25 @@ public class PKCS11Device {
         Set<DeviceCapability> caps = EnumSet.noneOf(DeviceCapability.class);
         long flags = tokenInfo.flags.longValue();
 
-        if ((flags & Pkcs11Constants.CKF_RNG) != 0) {
+        if (TokenFlags.hasFlag(flags, TokenFlags.RNG)) {
             caps.add(DeviceCapability.RANDOM_NUMBER_GENERATION);
         }
-        if ((flags & Pkcs11Constants.CKF_WRITE_PROTECTED) == 0) {
+        if (!TokenFlags.hasFlag(flags, TokenFlags.WRITE_PROTECTED)) {
             caps.add(DeviceCapability.WRITE_ENABLED);
         }
-        if ((flags & Pkcs11Constants.CKF_LOGIN_REQUIRED) != 0) {
+        if (TokenFlags.hasFlag(flags, TokenFlags.LOGIN_REQUIRED)) {
             caps.add(DeviceCapability.LOGIN_REQUIRED);
         }
-        if ((flags & Pkcs11Constants.CKF_RESTORE_KEY_NOT_NEEDED) != 0) {
+        if (TokenFlags.hasFlag(flags, TokenFlags.RESTORE_KEY_NOT_NEEDED)) {
             caps.add(DeviceCapability.KEY_RESTORATION_NOT_NEEDED);
         }
-        if ((flags & Pkcs11Constants.CKF_CLOCK_ON_TOKEN) != 0) {
+        if (TokenFlags.hasFlag(flags, TokenFlags.CLOCK_ON_TOKEN)) {
             caps.add(DeviceCapability.CLOCK_AVAILABLE);
         }
-        if ((flags & Pkcs11Constants.CKF_PROTECTED_AUTHENTICATION_PATH) != 0) {
+        if (TokenFlags.hasFlag(flags, TokenFlags.PROTECTED_AUTHENTICATION_PATH)) {
             caps.add(DeviceCapability.PROTECTED_AUTHENTICATION_PATH);
         }
-        if ((flags & Pkcs11Constants.CKF_DUAL_CRYPTO_OPERATIONS) != 0) {
+        if (TokenFlags.hasFlag(flags, TokenFlags.DUAL_CRYPTO_OPERATIONS)) {
             caps.add(DeviceCapability.DUAL_CRYPTO_OPERATIONS);
         }
 
@@ -127,10 +128,10 @@ public class PKCS11Device {
      */
     public boolean updateState() {
         try {
-            CK_TOKEN_INFO newTokenInfo = new CK_TOKEN_INFO();
+            TokenInfo newTokenInfo = new TokenInfo();
             NativeLong rv = pkcs11.C_GetTokenInfo(slotId, newTokenInfo);
 
-            if (rv.longValue() != Pkcs11Constants.CKR_OK) {
+            if (!ReturnValue.isSuccess(rv)) {
                 log.error("Failed to get token info for slot {}, error: {}", slotId, rv);
                 state = DeviceState.ERROR;
                 return false;

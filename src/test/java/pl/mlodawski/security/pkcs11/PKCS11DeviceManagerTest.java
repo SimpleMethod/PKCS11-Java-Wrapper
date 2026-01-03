@@ -12,7 +12,10 @@ import pl.mlodawski.security.pkcs11.model.DeviceCapability;
 import pl.mlodawski.security.pkcs11.model.DeviceChangeListener;
 import pl.mlodawski.security.pkcs11.model.DeviceState;
 import pl.mlodawski.security.pkcs11.model.PKCS11Device;
-import ru.rutoken.pkcs11jna.*;
+import pl.mlodawski.security.pkcs11.jna.Cryptoki;
+import pl.mlodawski.security.pkcs11.jna.constants.ReturnValue;
+import pl.mlodawski.security.pkcs11.jna.structure.SlotInfo;
+import pl.mlodawski.security.pkcs11.jna.structure.TokenInfo;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,7 +28,7 @@ import static org.mockito.Mockito.*;
 class PKCS11DeviceManagerTest {
 
     @Mock
-    private Pkcs11 pkcs11Mock;
+    private Cryptoki pkcs11Mock;
 
     @Mock
     private DeviceChangeListener listenerMock;
@@ -39,21 +42,21 @@ class PKCS11DeviceManagerTest {
                 .thenAnswer(inv -> {
                     NativeLongByReference count = inv.getArgument(2);
                     count.setValue(new NativeLong(1));
-                    return new NativeLong(Pkcs11Constants.CKR_OK);
+                    return new NativeLong(ReturnValue.OK);
                 });
 
         lenient().when(pkcs11Mock.C_GetSlotList(eq(TOKEN_PRESENT), any(NativeLong[].class), any(NativeLongByReference.class)))
                 .thenAnswer(inv -> {
                     NativeLong[] slots = inv.getArgument(1);
                     slots[0] = new NativeLong(0);
-                    return new NativeLong(Pkcs11Constants.CKR_OK);
+                    return new NativeLong(ReturnValue.OK);
                 });
 
-        lenient().when(pkcs11Mock.C_GetSlotInfo(any(NativeLong.class), any(CK_SLOT_INFO.class)))
-                .thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
+        lenient().when(pkcs11Mock.C_GetSlotInfo(any(NativeLong.class), any(SlotInfo.class)))
+                .thenReturn(new NativeLong(ReturnValue.OK));
 
-        lenient().when(pkcs11Mock.C_GetTokenInfo(any(NativeLong.class), any(CK_TOKEN_INFO.class)))
-                .thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
+        lenient().when(pkcs11Mock.C_GetTokenInfo(any(NativeLong.class), any(TokenInfo.class)))
+                .thenReturn(new NativeLong(ReturnValue.OK));
     }
 
     @Test
@@ -70,7 +73,7 @@ class PKCS11DeviceManagerTest {
                 .thenAnswer(inv -> {
                     NativeLongByReference count = inv.getArgument(2);
                     count.setValue(new NativeLong(0));
-                    return new NativeLong(Pkcs11Constants.CKR_OK);
+                    return new NativeLong(ReturnValue.OK);
                 });
 
         deviceManager = new PKCS11DeviceManager(pkcs11Mock);

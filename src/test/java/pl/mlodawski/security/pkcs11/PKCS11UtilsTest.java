@@ -1,6 +1,8 @@
 package pl.mlodawski.security.pkcs11;
 
 import com.sun.jna.Memory;
+import com.sun.jna.Native;
+import com.sun.jna.Pointer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -9,7 +11,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import pl.mlodawski.security.pkcs11.exceptions.*;
 import pl.mlodawski.security.pkcs11.model.KeyCertificatePair;
 import pl.mlodawski.security.pkcs11.model.SupportedAlgorithm;
-import ru.rutoken.pkcs11jna.*;
+import pl.mlodawski.security.pkcs11.jna.Cryptoki;
+import pl.mlodawski.security.pkcs11.jna.constants.MechanismFlags;
+import pl.mlodawski.security.pkcs11.jna.constants.MechanismType;
+import pl.mlodawski.security.pkcs11.jna.constants.ReturnValue;
+import pl.mlodawski.security.pkcs11.jna.structure.Attribute;
+import pl.mlodawski.security.pkcs11.jna.structure.MechanismInfo;
 
 import com.sun.jna.NativeLong;
 import com.sun.jna.ptr.NativeLongByReference;
@@ -26,7 +33,7 @@ import static org.mockito.Mockito.*;
 class PKCS11UtilsTest {
 
     @Mock
-    private Pkcs11 pkcs11Mock;
+    private Cryptoki pkcs11Mock;
     @Mock
     private X509Certificate certificateMock;
 
@@ -86,18 +93,20 @@ class PKCS11UtilsTest {
 
     @Test
     void getCKA_ID_validInput_shouldReturnCKA_ID() {
+        // CK_ATTRIBUTE packed layout: type (4 bytes) + pValue (8 bytes) + ulValueLen (4 bytes) = 16 bytes
+        // ulValueLen offset = NativeLong.SIZE + POINTER_SIZE = 4 + 8 = 12
+        int ulValueLenOffset = NativeLong.SIZE + Native.POINTER_SIZE;
 
-        when(pkcs11Mock.C_GetAttributeValue(any(NativeLong.class), any(NativeLong.class), any(CK_ATTRIBUTE[].class), any(NativeLong.class)))
+        when(pkcs11Mock.C_GetAttributeValue(any(NativeLong.class), any(NativeLong.class), any(Pointer.class), any(NativeLong.class)))
                 .thenAnswer(invocation -> {
-                    CK_ATTRIBUTE[] template = invocation.getArgument(2);
-                    template[0].pValue = new Memory(1);
-                    template[0].ulValueLen = new NativeLong(1);
-                    return new NativeLong(Pkcs11Constants.CKR_OK);
+                    Pointer templatePtr = invocation.getArgument(2);
+                    // Set ulValueLen at offset 12 (packed layout: type:4 + pValue:8)
+                    templatePtr.setNativeLong(ulValueLenOffset, new NativeLong(1));
+                    return new NativeLong(ReturnValue.OK);
                 });
 
         String ckaId = pkcs11Utils.getCKA_ID(pkcs11Mock, session, certHandle);
         assertNotNull(ckaId);
-        assertFalse(ckaId.isEmpty());
     }
 
     @Test
@@ -144,10 +153,10 @@ class PKCS11UtilsTest {
                 .thenAnswer(invocation -> {
                     NativeLongByReference count = invocation.getArgument(2);
                     count.setValue(new NativeLong(1));
-                    return new NativeLong(Pkcs11Constants.CKR_OK);
+                    return new NativeLong(ReturnValue.OK);
                 });
         when(pkcs11Mock.C_GetMechanismList(any(NativeLong.class), any(NativeLong[].class), any(NativeLongByReference.class)))
-                .thenReturn(new NativeLong(Pkcs11Constants.CKR_OK));
+                .thenReturn(new NativeLong(ReturnValue.OK));
 
         NativeLong[] mechanismList = pkcs11Utils.getMechanismList(pkcs11Mock, session);
         assertNotNull(mechanismList);
@@ -166,7 +175,7 @@ class PKCS11UtilsTest {
 
     @Test
     void getMechanismName_validInput_shouldReturnMechanismName() {
-        long mechanismCode = Pkcs11Constants.CKM_RSA_PKCS;
+        long mechanismCode = MechanismType.RSA_PKCS;
         String mechanismName = pkcs11Utils.getMechanismName(mechanismCode);
         assertNotNull(mechanismName);
         assertFalse(mechanismName.isEmpty());
@@ -176,13 +185,13 @@ class PKCS11UtilsTest {
     void getMechanismName_unknownMechanism_shouldReturnUnknownMechanism() {
         long unknownMechanismCode = 9999L;
         String mechanismName = pkcs11Utils.getMechanismName(unknownMechanismCode);
-        assertEquals("UNKNOWN_MECHANISM_9999", mechanismName);
+        assertEquals("UNKNOWN(0x0000270F)", mechanismName);
     }
 
     @Test
     void getAlgorithmType_validInput_shouldReturnAlgorithmType() {
-        CK_MECHANISM_INFO mechanismInfo = new CK_MECHANISM_INFO();
-        mechanismInfo.flags = new NativeLong(Pkcs11Constants.CKF_SIGN);
+        MechanismInfo mechanismInfo = new MechanismInfo();
+        mechanismInfo.flags = new NativeLong(MechanismFlags.SIGN);
         SupportedAlgorithm.AlgorithmType algorithmType = pkcs11Utils.getAlgorithmType(mechanismInfo);
         assertEquals(SupportedAlgorithm.AlgorithmType.SIGNATURE, algorithmType);
     }

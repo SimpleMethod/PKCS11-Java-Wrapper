@@ -1,5 +1,6 @@
 package pl.mlodawski.security.example;
 
+import com.sun.jna.NativeLong;
 import pl.mlodawski.security.pkcs11.*;
 import pl.mlodawski.security.pkcs11.model.*;
 
@@ -91,9 +92,15 @@ class PKCS11 {
                                     listSupportedAlgorithms(manager, session);
                                     break;
                                 case 8:
+                                    generateHardwareRandom(manager, session);
+                                    break;
+                                case 9:
+                                    computeHardwareDigest(manager, session);
+                                    break;
+                                case 10:
                                     selectedDevice = null;
                                     return;
-                                case 9:
+                                case 11:
                                     session.close();
                                     selectedDevice = null;
                                     PIN = null;
@@ -104,10 +111,6 @@ class PKCS11 {
                                 default:
                                     System.out.println("Invalid choice. Please try again.");
                             }
-
-//                            if (choice == 6) {
-//                                break;
-//                            }
                         }
                     } catch (Exception e) {
                         System.out.println("Session error: " + e.getMessage());
@@ -145,14 +148,12 @@ class PKCS11 {
                     selectedPair.getKeyHandle(),
                     fileContent);
 
-            // Save signature to file
             String signatureFilePath = filePath + ".sig";
             Files.write(Paths.get(signatureFilePath), signature);
 
             System.out.println("File signed successfully. Signature saved to: " + signatureFilePath);
             System.out.println("Signature (Base64): " + Base64.getEncoder().encodeToString(signature));
 
-            // Verify signature immediately
             boolean isSignatureValid = signer.verifySignature(fileContent, signature, selectedPair.getCertificate());
             System.out.println("Signature verification: " + (isSignatureValid ? "Valid" : "Invalid"));
         } catch (Exception e) {
@@ -208,11 +209,9 @@ class PKCS11 {
 
             byte[] fileContent = Files.readAllBytes(Paths.get(filePath));
 
-            // Encrypt file using hybrid encryption
             PKCS11Crypto crypto = new PKCS11Crypto();
             byte[][] encryptedPackage = crypto.encryptData(fileContent, selectedPair.getCertificate());
 
-            // Save encrypted components
             String encryptedKeyPath = filePath + ".key.enc";
             String encryptedIVPath = filePath + ".iv";
             String encryptedDataPath = filePath + ".data.enc";
@@ -232,7 +231,6 @@ class PKCS11 {
                 return;
             }
 
-            // Decrypt file
             byte[][] decryptPackage = new byte[][]{
                     Files.readAllBytes(Paths.get(encryptedKeyPath)),
                     Files.readAllBytes(Paths.get(encryptedIVPath)),
@@ -246,12 +244,10 @@ class PKCS11 {
                     decryptPackage
             );
 
-            // Save decrypted file
             String decryptedFilePath = filePath + ".dec";
             Files.write(Paths.get(decryptedFilePath), decryptedData);
             System.out.println("File decrypted successfully. Saved to: " + decryptedFilePath);
 
-            // Calculate and display checksums
             String originalChecksum = getFileChecksum(fileContent);
             String decryptedChecksum = getFileChecksum(decryptedData);
 
@@ -379,15 +375,20 @@ class PKCS11 {
     private void displayMenu() {
         System.out.println("\n--- PKCS#11 Operations Menu ---");
         System.out.println("Current device: " + selectedDevice.getLabel());
+        System.out.println("--- Basic Operations ---");
         System.out.println("1. List Available Certificates");
-        System.out.println("2. Sign a Message");
+        System.out.println("2. Sign a Message (RSA-PKCS)");
         System.out.println("3. Sign a File");
         System.out.println("4. Verify File Signature");
-        System.out.println("5. Encrypt and Decrypt Data");
-        System.out.println("6. Encrypt and Decrypt File");
+        System.out.println("5. Encrypt and Decrypt Data (Hybrid)");
+        System.out.println("6. Encrypt and Decrypt File (Hybrid)");
         System.out.println("7. List Supported Algorithms");
-        System.out.println("8. Exit");
-        System.out.println("9. Change Device");
+        System.out.println("--- Advanced Operations ---");
+        System.out.println("8. Generate Hardware Random Numbers");
+        System.out.println("9. Compute Hardware Digest (Hash)");
+        System.out.println("--- System ---");
+        System.out.println("10. Exit");
+        System.out.println("11. Change Device");
         System.out.print("Enter your choice: ");
     }
 
@@ -457,12 +458,10 @@ class PKCS11 {
 
             PKCS11Crypto crypto = new PKCS11Crypto();
 
-            // Encrypt data
             byte[][] encryptedPackage = crypto.encryptData(dataToEncrypt.getBytes(), selectedPair.getCertificate());
             System.out.println("Data encrypted successfully.");
             System.out.println("Encrypted data (Base64): " + Base64.getEncoder().encodeToString(encryptedPackage[2]));
 
-            // Decrypt data
             byte[] decryptedData = crypto.decryptData(
                     manager.getPkcs11(),
                     session.getSession(),
@@ -503,6 +502,94 @@ class PKCS11 {
         } catch (Exception e) {
             System.out.println("Error listing algorithms: " + e.getMessage());
         }
+    }
+
+    private void generateHardwareRandom(PKCS11Manager manager, PKCS11Session session) {
+        try {
+            Scanner scanner = new Scanner(System.in);
+            System.out.print("Enter number of random bytes to generate (1-1024): ");
+            int numBytes = scanner.nextInt();
+
+            if (numBytes < 1 || numBytes > 1024) {
+                System.out.println("Invalid number of bytes. Please enter a value between 1 and 1024.");
+                return;
+            }
+
+            PKCS11Random random = new PKCS11Random(manager.getPkcs11(), session.getSession());
+            byte[] randomBytes = random.generateRandomBytes(numBytes);
+
+            System.out.println("\nHardware-generated random bytes:");
+            System.out.println("Hex: " + bytesToHex(randomBytes));
+            System.out.println("Base64: " + Base64.getEncoder().encodeToString(randomBytes));
+            System.out.println("Generated " + randomBytes.length + " random bytes from hardware token.");
+        } catch (Exception e) {
+            System.out.println("Error generating random numbers: " + e.getMessage());
+        }
+    }
+
+    private void computeHardwareDigest(PKCS11Manager manager, PKCS11Session session) {
+        try {
+            Scanner scanner = new Scanner(System.in);
+
+            System.out.println("\nSelect hash algorithm:");
+            PKCS11Digest.Algorithm[] algorithms = PKCS11Digest.Algorithm.values();
+            for (int i = 0; i < algorithms.length; i++) {
+                System.out.printf("%d. %s (%d bytes)%n", i + 1, algorithms[i].name(), algorithms[i].getDigestLength());
+            }
+            System.out.print("Enter choice: ");
+            int algoChoice = scanner.nextInt();
+            scanner.nextLine(); // consume newline
+
+            if (algoChoice < 1 || algoChoice > algorithms.length) {
+                System.out.println("Invalid algorithm choice.");
+                return;
+            }
+            PKCS11Digest.Algorithm selectedAlgorithm = algorithms[algoChoice - 1];
+
+            System.out.print("Enter data to hash (or 'file:path' to hash a file): ");
+            String input = scanner.nextLine();
+
+            byte[] dataToHash;
+            if (input.startsWith("file:")) {
+                String filePath = input.substring(5);
+                if (!Files.exists(Paths.get(filePath))) {
+                    System.out.println("File does not exist: " + filePath);
+                    return;
+                }
+                dataToHash = Files.readAllBytes(Paths.get(filePath));
+                System.out.println("Hashing file: " + filePath + " (" + dataToHash.length + " bytes)");
+            } else {
+                dataToHash = input.getBytes();
+            }
+
+            PKCS11Digest digest = new PKCS11Digest(manager.getPkcs11(), session.getSession());
+            byte[] hashResult = digest.digest(selectedAlgorithm, dataToHash);
+
+            System.out.println("\nHardware-computed " + selectedAlgorithm.name() + " digest:");
+            System.out.println("Hex: " + bytesToHex(hashResult));
+            System.out.println("Base64: " + Base64.getEncoder().encodeToString(hashResult));
+
+            try {
+                String javaAlgoName = selectedAlgorithm.name().replace("_", "-");
+                if (javaAlgoName.equals("SHA1")) javaAlgoName = "SHA-1";
+                MessageDigest md = MessageDigest.getInstance(javaAlgoName);
+                byte[] softwareHash = md.digest(dataToHash);
+                boolean matches = Arrays.equals(hashResult, softwareHash);
+                System.out.println("Matches software hash: " + (matches ? "Yes" : "No"));
+            } catch (NoSuchAlgorithmException e) {
+                System.out.println("(Software comparison not available for this algorithm)");
+            }
+        } catch (Exception e) {
+            System.out.println("Error computing digest: " + e.getMessage());
+        }
+    }
+
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 }
 

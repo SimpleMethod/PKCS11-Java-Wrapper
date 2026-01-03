@@ -8,9 +8,10 @@ import pl.mlodawski.security.pkcs11.exceptions.CryptoInitializationException;
 import pl.mlodawski.security.pkcs11.exceptions.DecryptionException;
 import pl.mlodawski.security.pkcs11.exceptions.EncryptionException;
 import pl.mlodawski.security.pkcs11.exceptions.InvalidInputException;
-import ru.rutoken.pkcs11jna.CK_MECHANISM;
-import ru.rutoken.pkcs11jna.Pkcs11;
-import ru.rutoken.pkcs11jna.Pkcs11Constants;
+import pl.mlodawski.security.pkcs11.jna.Cryptoki;
+import pl.mlodawski.security.pkcs11.jna.constants.MechanismType;
+import pl.mlodawski.security.pkcs11.jna.constants.ReturnValue;
+import pl.mlodawski.security.pkcs11.jna.structure.Mechanism;
 
 import javax.crypto.Cipher;
 import java.security.cert.X509Certificate;
@@ -31,7 +32,7 @@ public class PKCS11RSACrypto {
      * @throws IllegalArgumentException if any of the parameters is null
      * @throws RuntimeException if the decryption initialization fails
      */
-    private void initCrypto(Pkcs11 pkcs11, NativeLong session, NativeLong privateKeyHandle) {
+    private void initCrypto(Cryptoki pkcs11, NativeLong session, NativeLong privateKeyHandle) {
         if (pkcs11 == null) {
             throw new IllegalArgumentException("pkcs11 cannot be null");
         }
@@ -43,9 +44,18 @@ public class PKCS11RSACrypto {
         }
 
         try {
-            CK_MECHANISM mechanism = new CK_MECHANISM();
-            mechanism.mechanism = new NativeLong(Pkcs11Constants.CKM_RSA_PKCS);
-            pkcs11.C_DecryptInit(session, mechanism, privateKeyHandle);
+            Mechanism mechanism = new Mechanism(MechanismType.RSA_PKCS);
+            log.debug("Created mechanism: type=0x{}, paramLen={}",
+                    Long.toHexString(mechanism.mechanism.longValue()),
+                    mechanism.ulParameterLen.longValue());
+            NativeLong rv = pkcs11.C_DecryptInit(session, mechanism, privateKeyHandle);
+            if (rv.longValue() != 0) {
+                throw new CryptoInitializationException(
+                        "C_DecryptInit failed with error code: 0x" + Long.toHexString(rv.longValue()), null);
+            }
+            log.debug("Initialized decryption");
+        } catch (CryptoInitializationException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Crypto initialization failed", e);
             throw new CryptoInitializationException("Crypto initialization failed", e);
@@ -54,6 +64,7 @@ public class PKCS11RSACrypto {
 
     /**
      * Encrypts the given data using RSA algorithm with the provided X509 certificate.
+     * Uses PKCS#1 v1.5 padding.
      *
      * @param dataToEncrypt   the data to be encrypted
      * @param certificate     the X509 certificate used for encryption
@@ -81,6 +92,7 @@ public class PKCS11RSACrypto {
 
     /**
      * Decrypts the given encrypted data using the specified private key.
+     * Uses PKCS#1 v1.5 padding.
      *
      * @param pkcs11 the Pkcs11 instance used for decryption
      * @param session the native long value representing the session
@@ -90,7 +102,7 @@ public class PKCS11RSACrypto {
      * @throws IllegalArgumentException if any of the input parameters are null or invalid
      * @throws RuntimeException if decryption fails
      */
-    public byte[] decryptData(Pkcs11 pkcs11, NativeLong session, NativeLong privateKeyHandle, byte[] encryptedData) {
+    public byte[] decryptData(Cryptoki pkcs11, NativeLong session, NativeLong privateKeyHandle, byte[] encryptedData) {
         if (pkcs11 == null) {
             throw new IllegalArgumentException("pkcs11 cannot be null");
         }
@@ -116,7 +128,6 @@ public class PKCS11RSACrypto {
         }
     }
 
-
     /**
      * Decrypts the given encrypted data using PKCS11.
      *
@@ -127,7 +138,7 @@ public class PKCS11RSACrypto {
      * @throws IllegalArgumentException if pkcs11, session, or encryptedData is null/empty
      * @throws RuntimeException if decryption fails
      */
-    public byte[] decrypt(Pkcs11 pkcs11, NativeLong session, byte[] encryptedData) {
+    public byte[] decrypt(Cryptoki pkcs11, NativeLong session, byte[] encryptedData) {
         if (pkcs11 == null) {
             throw new IllegalArgumentException("pkcs11 cannot be null");
         }
@@ -139,19 +150,25 @@ public class PKCS11RSACrypto {
         }
 
         try {
-            NativeLongByReference decryptedDataLen = new NativeLongByReference();
-            NativeLong result = pkcs11.C_Decrypt(session, encryptedData, new NativeLong(encryptedData.length), null, decryptedDataLen);
-            if (!result.equals(new NativeLong(Pkcs11Constants.CKR_OK))) {
-                throw new DecryptionException("Decryption failed with error code: " + result, null);
+            int bufferLen = encryptedData.length;
+            byte[] decryptedData = new byte[bufferLen];
+            NativeLongByReference decryptedDataLen = new NativeLongByReference(new NativeLong(bufferLen));
+
+            NativeLong result = pkcs11.C_Decrypt(session, encryptedData, new NativeLong(encryptedData.length),
+                    decryptedData, decryptedDataLen);
+            if (!ReturnValue.isSuccess(result)) {
+                throw new DecryptionException("Decryption failed with error code: 0x" + Long.toHexString(result.longValue()), null);
             }
 
-            byte[] decryptedData = new byte[decryptedDataLen.getValue().intValue()];
-            result = pkcs11.C_Decrypt(session, encryptedData, new NativeLong(encryptedData.length), decryptedData, decryptedDataLen);
-            if (!result.equals(new NativeLong(Pkcs11Constants.CKR_OK))) {
-                throw new DecryptionException("Decryption failed with error code: " + result, null);
+            int actualLen = decryptedDataLen.getValue().intValue();
+            if (actualLen < bufferLen) {
+                byte[] trimmedData = new byte[actualLen];
+                System.arraycopy(decryptedData, 0, trimmedData, 0, actualLen);
+                return trimmedData;
             }
-
             return decryptedData;
+        } catch (DecryptionException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Decryption failed", e);
             throw new DecryptionException("Decryption failed", e);

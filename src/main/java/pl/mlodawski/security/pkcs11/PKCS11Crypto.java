@@ -2,13 +2,13 @@ package pl.mlodawski.security.pkcs11;
 
 import lombok.extern.slf4j.Slf4j;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import pl.mlodawski.security.pkcs11.exceptions.CryptoInitializationException;
 import pl.mlodawski.security.pkcs11.exceptions.DecryptionException;
 import pl.mlodawski.security.pkcs11.exceptions.EncryptionException;
 import pl.mlodawski.security.pkcs11.exceptions.InvalidInputException;
-import ru.rutoken.pkcs11jna.CK_MECHANISM;
-import ru.rutoken.pkcs11jna.Pkcs11;
-import ru.rutoken.pkcs11jna.Pkcs11Constants;
+import pl.mlodawski.security.pkcs11.jna.Cryptoki;
+import pl.mlodawski.security.pkcs11.jna.constants.MechanismType;
+import pl.mlodawski.security.pkcs11.jna.constants.ReturnValue;
+import pl.mlodawski.security.pkcs11.jna.structure.Mechanism;
 import com.sun.jna.NativeLong;
 import com.sun.jna.ptr.NativeLongByReference;
 
@@ -77,7 +77,7 @@ public class PKCS11Crypto {
      * @return the decrypted data as a byte array.
      * @throws DecryptionException if the decryption process fails.
      */
-    public byte[] decryptData(Pkcs11 pkcs11, NativeLong session, NativeLong privateKeyHandle, byte[][] encryptedPackage) {
+    public byte[] decryptData(Cryptoki pkcs11, NativeLong session, NativeLong privateKeyHandle, byte[][] encryptedPackage) {
         validateDecryptInput(pkcs11, session, privateKeyHandle, encryptedPackage);
 
         byte[] encryptedKey = encryptedPackage[0];
@@ -85,8 +85,7 @@ public class PKCS11Crypto {
         byte[] encryptedData = encryptedPackage[2];
 
         try {
-            CK_MECHANISM mechanism = new CK_MECHANISM();
-            mechanism.mechanism = new NativeLong(Pkcs11Constants.CKM_RSA_PKCS);
+            Mechanism mechanism = new Mechanism(MechanismType.RSA_PKCS);
             NativeLong rv = pkcs11.C_DecryptInit(session, mechanism, privateKeyHandle);
             checkResult(rv, "Failed to initialize decryption");
 
@@ -111,7 +110,7 @@ public class PKCS11Crypto {
      * @return the decrypted data as a byte array
      * @throws DecryptionException if the decryption process fails
      */
-    private byte[] decrypt(Pkcs11 pkcs11, NativeLong session, byte[] encryptedData) {
+    private byte[] decrypt(Cryptoki pkcs11, NativeLong session, byte[] encryptedData) {
         try {
             NativeLongByReference decryptedDataLen = new NativeLongByReference();
             NativeLong result = pkcs11.C_Decrypt(session, encryptedData, new NativeLong(encryptedData.length), null, decryptedDataLen);
@@ -136,7 +135,7 @@ public class PKCS11Crypto {
      * @throws DecryptionException if the result is not CKR_OK.
      */
     private void checkResult(NativeLong result, String errorMessage) {
-        if (!result.equals(new NativeLong(Pkcs11Constants.CKR_OK))) {
+        if (!ReturnValue.isSuccess(result)) {
             throw new DecryptionException(errorMessage + ": " + result, null);
         }
     }
@@ -166,7 +165,7 @@ public class PKCS11Crypto {
      * @param encryptedPackage the encrypted data package, must be an array of three non-null byte arrays
      * @throws InvalidInputException if any of the input parameters are invalid
      */
-    private void validateDecryptInput(Pkcs11 pkcs11, NativeLong session, NativeLong privateKeyHandle, byte[][] encryptedPackage) {
+    private void validateDecryptInput(Cryptoki pkcs11, NativeLong session, NativeLong privateKeyHandle, byte[][] encryptedPackage) {
         if (pkcs11 == null) {
             throw new InvalidInputException("pkcs11 instance cannot be null");
         }

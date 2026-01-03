@@ -10,7 +10,11 @@ import pl.mlodawski.security.pkcs11.model.DeviceCapability;
 import pl.mlodawski.security.pkcs11.model.DeviceChangeListener;
 import pl.mlodawski.security.pkcs11.model.DeviceState;
 import pl.mlodawski.security.pkcs11.model.PKCS11Device;
-import ru.rutoken.pkcs11jna.*;
+import pl.mlodawski.security.pkcs11.jna.Cryptoki;
+import pl.mlodawski.security.pkcs11.jna.constants.ReturnValue;
+import pl.mlodawski.security.pkcs11.jna.structure.InitializeArgs;
+import pl.mlodawski.security.pkcs11.jna.structure.SlotInfo;
+import pl.mlodawski.security.pkcs11.jna.structure.TokenInfo;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -53,7 +57,7 @@ public class PKCS11DeviceManager implements AutoCloseable {
      * cannot be changed once initialized, providing immutability and
      * thread-safety guarantees.
      */
-    private final Pkcs11 pkcs11;
+    private final Cryptoki pkcs11;
     /**
      * A map that holds PKCS11Device instances identified by their respective
      * NativeLong keys. This variable is used to manage and access the collection
@@ -94,7 +98,7 @@ public class PKCS11DeviceManager implements AutoCloseable {
      * @param pkcs11 the PKCS11 instance to manage
      * @throws IllegalArgumentException if pkcs11 is null
      */
-    public PKCS11DeviceManager(final Pkcs11 pkcs11) {
+    public PKCS11DeviceManager(final Cryptoki pkcs11) {
         if (pkcs11 == null) {
             throw new IllegalArgumentException("pkcs11 cannot be null");
         }
@@ -126,14 +130,14 @@ public class PKCS11DeviceManager implements AutoCloseable {
         try {
             NativeLongByReference slotCount = new NativeLongByReference();
             NativeLong rv = pkcs11.C_GetSlotList(TOKEN_PRESENT, null, slotCount);
-            if (rv.longValue() != Pkcs11Constants.CKR_OK) {
+            if (!ReturnValue.isSuccess(rv)) {
                 throw new DeviceManagerException("Failed to get slot count, error: " + rv.longValue(), null);
             }
 
             if (slotCount.getValue().longValue() > 0) {
                 NativeLong[] slots = new NativeLong[slotCount.getValue().intValue()];
                 rv = pkcs11.C_GetSlotList(TOKEN_PRESENT, slots, slotCount);
-                if (rv.longValue() != Pkcs11Constants.CKR_OK) {
+                if (!ReturnValue.isSuccess(rv)) {
                     throw new DeviceManagerException("Failed to get slot list, error: " + rv.longValue(), null);
                 }
 
@@ -165,7 +169,7 @@ public class PKCS11DeviceManager implements AutoCloseable {
         try {
             NativeLongByReference slotCount = new NativeLongByReference();
             NativeLong rv = pkcs11.C_GetSlotList(TOKEN_PRESENT, null, slotCount);
-            if (rv.longValue() != Pkcs11Constants.CKR_OK) {
+            if (!ReturnValue.isSuccess(rv)) {
                 log.error("Failed to get slot count, error: {}", rv.longValue());
                 return;
             }
@@ -173,7 +177,7 @@ public class PKCS11DeviceManager implements AutoCloseable {
             if (slotCount.getValue().longValue() > 0) {
                 NativeLong[] slots = new NativeLong[slotCount.getValue().intValue()];
                 rv = pkcs11.C_GetSlotList(TOKEN_PRESENT, slots, slotCount);
-                if (rv.longValue() != Pkcs11Constants.CKR_OK) {
+                if (!ReturnValue.isSuccess(rv)) {
                     log.error("Failed to get slot list, error: {}", rv.longValue());
                     return;
                 }
@@ -303,13 +307,13 @@ public class PKCS11DeviceManager implements AutoCloseable {
                     log.debug("C_Finalize threw exception (might be already finalized)", e);
                 }
 
-                CK_C_INITIALIZE_ARGS initArgs = new CK_C_INITIALIZE_ARGS();
+                InitializeArgs initArgs = new InitializeArgs();
                 initArgs.flags = new NativeLong(0);
                 initArgs.pReserved = null;
 
                 NativeLong rv = pkcs11.C_Initialize(initArgs);
-                if (rv.longValue() != Pkcs11Constants.CKR_OK &&
-                        rv.longValue() != Pkcs11Constants.CKR_CRYPTOKI_ALREADY_INITIALIZED) {
+                if (!ReturnValue.isSuccess(rv) &&
+                        rv.longValue() != ReturnValue.CRYPTOKI_ALREADY_INITIALIZED) {
                     throw new DeviceManagerException("Failed to initialize PKCS#11, error: " + rv.longValue(), null);
                 }
                 deviceMonitor = createDeviceMonitor();
@@ -343,7 +347,7 @@ public class PKCS11DeviceManager implements AutoCloseable {
         try {
             NativeLongByReference slotCount = new NativeLongByReference();
             NativeLong rv = pkcs11.C_GetSlotList(TOKEN_PRESENT, null, slotCount);
-            if (rv.longValue() != Pkcs11Constants.CKR_OK) {
+            if (!ReturnValue.isSuccess(rv)) {
                 log.error("Failed to get slot count, error: {}", rv.longValue());
                 return;
             }
@@ -351,7 +355,7 @@ public class PKCS11DeviceManager implements AutoCloseable {
             if (slotCount.getValue().longValue() > 0) {
                 NativeLong[] currentSlots = new NativeLong[slotCount.getValue().intValue()];
                 rv = pkcs11.C_GetSlotList(TOKEN_PRESENT, currentSlots, slotCount);
-                if (rv.longValue() != Pkcs11Constants.CKR_OK) {
+                if (!ReturnValue.isSuccess(rv)) {
                     log.error("Failed to get slot list, error: {}", rv.longValue());
                     return;
                 }
@@ -386,17 +390,17 @@ public class PKCS11DeviceManager implements AutoCloseable {
      */
     private void addDevice(NativeLong slot) {
         try {
-            CK_SLOT_INFO slotInfo = new CK_SLOT_INFO();
-            CK_TOKEN_INFO tokenInfo = new CK_TOKEN_INFO();
+            SlotInfo slotInfo = new SlotInfo();
+            TokenInfo tokenInfo = new TokenInfo();
 
             NativeLong rv = pkcs11.C_GetSlotInfo(slot, slotInfo);
-            if (rv.longValue() != Pkcs11Constants.CKR_OK) {
+            if (!ReturnValue.isSuccess(rv)) {
                 log.error("Failed to get slot info for slot {}, error: {}", slot, rv);
                 return;
             }
 
             rv = pkcs11.C_GetTokenInfo(slot, tokenInfo);
-            if (rv.longValue() != Pkcs11Constants.CKR_OK) {
+            if (!ReturnValue.isSuccess(rv)) {
                 log.error("Failed to get token info for slot {}, error: {}", slot, rv);
                 return;
             }
