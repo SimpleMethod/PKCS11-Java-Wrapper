@@ -1,6 +1,6 @@
-# 🔐 PKCS11 Java Wrapper
+# PKCS11 Java Wrapper
 
-## 📚 Table of Contents
+## Table of Contents
 - [Introduction](#introduction)
 - [Features](#features)
 - [Project Structure](#project-structure)
@@ -12,7 +12,11 @@
     - [Detailed Examples](#detailed-examples)
         - [Listing Certificates](#listing-certificates)
         - [Signing a Message](#signing-a-message)
+        - [ECDSA Signing](#ecdsa-signing)
         - [Encrypting and Decrypting Data](#encrypting-and-decrypting-data)
+        - [Hardware Random Number Generation](#hardware-random-number-generation)
+        - [Hardware Digest Operations](#hardware-digest-operations)
+        - [ECDH Key Derivation](#ecdh-key-derivation)
         - [Listing Supported Algorithms](#listing-supported-algorithms)
 - [Architecture](#architecture)
     - [Class Diagrams](#class-diagrams)
@@ -23,29 +27,36 @@
 - [License](#license)
 - [Contact](#contact)
 
-## 🌟 Introduction
+## Introduction
 
 Welcome to the PKCS11 Java Wrapper! This comprehensive Java library provides a robust and user-friendly interface for interacting with PKCS#11 (also known as Cryptoki) compatible hardware security modules (HSMs) and smart cards. Our project aims to simplify cryptographic operations while maintaining the highest security standards.
 
-## 🚀 Features
+## Features
 
-- 🔒 Secure initialization and management of PKCS#11 sessions
-- 🔑 Key and certificate management
-- 📝 Digital signature creation and verification
-- 🔐 Data encryption and decryption
-- 🧰 Utility functions for common PKCS#11 operations
-- 🛡️ Comprehensive exception handling for robust error management
-- 📱 Multi-device support with hot-plug capabilities
-- 🔄 Automatic device state monitoring
-- 🎯 Device filtering by capabilities and state
-- 🧪 Extensive test coverage ensuring reliability
+- Secure initialization and management of PKCS#11 sessions
+- Key and certificate management
+- **RSA Digital Signatures** (SHA-1, SHA-224, SHA-256, SHA-384, SHA-512 with PKCS#1 v1.5)
+- **ECDSA Digital Signatures** (SHA-1, SHA-224, SHA-256, SHA-384, SHA-512)
+- **Hybrid Encryption** (AES-256-CBC + RSA key wrapping)
+- **Direct RSA Encryption/Decryption** (PKCS#1 v1.5)
+- **Hardware Random Number Generation** (SecureRandom implementation)
+- **Hardware Digest Operations** (MD5, SHA-1, SHA-224, SHA-256, SHA-384, SHA-512, RIPEMD-160)
+- **ECDH Key Derivation** (with multiple KDF options)
+- Multi-part signing for large files (> 16KB)
+- Utility functions for common PKCS#11 operations
+- Comprehensive exception handling for robust error management
+- Multi-device support with hot-plug capabilities
+- Automatic device state monitoring
+- Device filtering by capabilities and state
+- Extensive test coverage ensuring reliability
+- **Custom JNA bindings** based on OASIS PKCS#11 v2.40 specification
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 Root:.
 ├───lib
-│       // OpenSC and other PKCS#11 libraries
+│       opensc-pkcs11.dll (or .so/.dylib for other platforms)
 ├───src
 │   ├───main
 │   │   ├───java
@@ -56,14 +67,45 @@ Root:.
 │   │   │               │       PKCS11Example.java
 │   │   │               └───pkcs11
 │   │   │                   │   PKCS11Crypto.java
-│   │   │                   │   PKCS11Initializer.java
+│   │   │                   │   PKCS11Digest.java
 │   │   │                   │   PKCS11DeviceManager.java
+│   │   │                   │   PKCS11ECDSASigner.java
+│   │   │                   │   PKCS11Initializer.java
+│   │   │                   │   PKCS11KeyDerivation.java
 │   │   │                   │   PKCS11Manager.java
+│   │   │                   │   PKCS11Random.java
+│   │   │                   │   PKCS11RSACrypto.java
 │   │   │                   │   PKCS11Session.java
 │   │   │                   │   PKCS11Signer.java
 │   │   │                   │   PKCS11Utils.java
 │   │   │                   ├───exceptions
-│   │   │                   │       // Various exception classes
+│   │   │                   │       DigestException.java
+│   │   │                   │       KeyDerivationException.java
+│   │   │                   │       RandomGenerationException.java
+│   │   │                   │       // ... and 25+ more exception classes
+│   │   │                   ├───jna
+│   │   │                   │   │   Cryptoki.java
+│   │   │                   │   ├───constants
+│   │   │                   │   │       AttributeType.java
+│   │   │                   │   │       MechanismFlags.java
+│   │   │                   │   │       MechanismType.java
+│   │   │                   │   │       ObjectClass.java
+│   │   │                   │   │       ReturnValue.java
+│   │   │                   │   │       SessionFlags.java
+│   │   │                   │   │       TokenFlags.java
+│   │   │                   │   │       UserType.java
+│   │   │                   │   └───structure
+│   │   │                   │           Attribute.java
+│   │   │                   │           Ecdh1DeriveParams.java
+│   │   │                   │           InitializeArgs.java
+│   │   │                   │           Mechanism.java
+│   │   │                   │           MechanismHolder.java
+│   │   │                   │           MechanismInfo.java
+│   │   │                   │           RsaPkcsOaepParams.java
+│   │   │                   │           RsaPkcsPssParams.java
+│   │   │                   │           SlotInfo.java
+│   │   │                   │           TokenInfo.java
+│   │   │                   │           Version.java
 │   │   │                   └───model
 │   │   │                           CertificateInfo.java
 │   │   │                           DeviceCapability.java
@@ -78,15 +120,26 @@ Root:.
 │               └───mlodawski
 │                   └───security
 │                       └───pkcs11
-│                               // Test classes for each main class
+│                               PKCS11CryptoTest.java
+│                               PKCS11DeviceManagerTest.java
+│                               PKCS11DigestTest.java
+│                               PKCS11ECDSASignerTest.java
+│                               PKCS11InitializerTest.java
+│                               PKCS11KeyDerivationTest.java
+│                               PKCS11ManagerTest.java
+│                               PKCS11RandomTest.java
+│                               PKCS11RSACryptoTest.java
+│                               PKCS11SessionTest.java
+│                               PKCS11SignerTest.java
+│                               PKCS11UtilsTest.java
 ```
 
-## 🏁 Getting Started
+## Getting Started
 
 ### Prerequisites
 
-- Java Development Kit (JDK) 21 or higher
-- Maven 4.0.0 or higher
+- Java Development Kit (JDK) 25 or higher
+- Maven 3.9.0 or higher
 - A PKCS#11 compatible hardware security module or smart card
 - The appropriate PKCS#11 library for your device (e.g., opensc-pkcs11.dll)
 
@@ -107,7 +160,7 @@ Root:.
    mvn clean install
    ```
 
-## 🖥️ Usage
+## Usage
 
 ### Basic Example
 
@@ -115,7 +168,9 @@ Here's a basic example of how to use the PKCS11 Java Wrapper:
 
 ```java
 import pl.mlodawski.security.pkcs11.*;
+import pl.mlodawski.security.pkcs11.model.*;
 import java.nio.file.Paths;
+import java.util.List;
 
 public class PKCS11Example {
     public static void main(String[] args) {
@@ -134,13 +189,13 @@ public class PKCS11Example {
 
                 @Override
                 public void onDeviceStateChanged(PKCS11Device device, DeviceState oldState) {
-                    System.out.println("Device state changed: " + device.getLabel() + 
+                    System.out.println("Device state changed: " + device.getLabel() +
                                      " from " + oldState + " to " + device.getState());
                 }
 
                 @Override
                 public void onDeviceError(PKCS11Device device, Exception error) {
-                    System.err.println("Device error: " + device.getLabel() + 
+                    System.err.println("Device error: " + device.getLabel() +
                                      " - " + error.getMessage());
                 }
             });
@@ -163,16 +218,16 @@ public class PKCS11Example {
 }
 ```
 
-This example initializes the PKCS11 library, opens a session, and provides a menu-driven interface for various PKCS#11 operations.
-
-
 ### Detailed Examples
 
 #### Listing Certificates
 
 ```java
 private void listCertificates(PKCS11Manager manager, PKCS11Session session) {
-    List<KeyCertificatePair> pairs = utils.findPrivateKeysAndCertificates(manager.getPkcs11(), session.getSession());
+    PKCS11Utils utils = new PKCS11Utils();
+    List<KeyCertificatePair> pairs = utils.findPrivateKeysAndCertificates(
+            manager.getPkcs11(), session.getSession());
+
     System.out.println("\nAvailable certificate-key pairs:");
     for (int i = 0; i < pairs.size(); i++) {
         KeyCertificatePair pair = pairs.get(i);
@@ -189,103 +244,271 @@ private void listCertificates(PKCS11Manager manager, PKCS11Session session) {
 }
 ```
 
-This method demonstrates how to list all available certificate-key pairs stored in the PKCS#11 token. Here's a breakdown of its functionality:
-
-1. It uses the `PKCS11Utils` class to find all private keys and their associated certificates within the current session.
-2. For each key-certificate pair found:
-    - It retrieves detailed certificate information using the `CertificateInfo` object.
-    - It prints out important certificate details, including:
-        - The subject (owner) of the certificate
-        - The issuer of the certificate
-        - The serial number
-        - The validity period (Not Before and Not After dates)
-        - The CKA_ID, which is a unique identifier for the key-certificate pair in the PKCS#11 token
-
-This method is crucial for users to identify and select the appropriate certificate for operations like signing or encryption.
-
 #### Signing a Message
 
-```java
-private void signMessage(PKCS11Manager manager, PKCS11Session session) throws Exception {
-    KeyCertificatePair selectedPair = selectCertificateKeyPair(manager, session);
+RSA signing with multiple algorithm support:
 
-    System.out.print("Enter a message to sign: ");
-    Scanner scanner = new Scanner(System.in);
-    String messageToSign = scanner.nextLine();
+```java
+private void signMessage(PKCS11Manager manager, PKCS11Session session,
+                         KeyCertificatePair selectedPair) throws Exception {
+    String messageToSign = "Hello, World!";
 
     PKCS11Signer signer = new PKCS11Signer();
-    byte[] signature = signer.signMessage(manager.getPkcs11(), session.getSession(), selectedPair.getKeyHandle(), messageToSign.getBytes());
+
+    // Sign with SHA-256 (default)
+    byte[] signature = signer.signMessage(
+            manager.getPkcs11(),
+            session.getSession(),
+            selectedPair.getKeyHandle(),
+            messageToSign.getBytes());
+
+    // Or specify algorithm explicitly
+    byte[] signatureSha512 = signer.signMessage(
+            manager.getPkcs11(),
+            session.getSession(),
+            selectedPair.getKeyHandle(),
+            messageToSign.getBytes(),
+            PKCS11Signer.SigningAlgorithm.SHA512_RSA_PKCS);
+
     System.out.println("Signature: " + Base64.getEncoder().encodeToString(signature));
 
-    boolean isSignatureValid = signer.verifySignature(messageToSign.getBytes(), signature, selectedPair.getCertificate());
-    System.out.println("Signature status: " + (isSignatureValid ? "Valid" : "Invalid"));
+    // Verify signature
+    boolean isValid = signer.verifySignature(
+            messageToSign.getBytes(),
+            signature,
+            selectedPair.getCertificate());
+    System.out.println("Signature status: " + (isValid ? "Valid" : "Invalid"));
 }
 ```
 
-This method showcases the process of digitally signing a message using a private key stored in the PKCS#11 token. Here's a step-by-step explanation:
+**Supported RSA Signing Algorithms:**
+- `SHA1_RSA_PKCS` - SHA-1 with RSA PKCS#1 v1.5
+- `SHA224_RSA_PKCS` - SHA-224 with RSA PKCS#1 v1.5
+- `SHA256_RSA_PKCS` - SHA-256 with RSA PKCS#1 v1.5 (default)
+- `SHA384_RSA_PKCS` - SHA-384 with RSA PKCS#1 v1.5
+- `SHA512_RSA_PKCS` - SHA-512 with RSA PKCS#1 v1.5
 
-1. It first calls `selectCertificateKeyPair()` (not shown in the snippet) to allow the user to choose which key-certificate pair to use for signing.
-2. The user is prompted to enter a message to be signed.
-3. A `PKCS11Signer` object is created to handle the signing process.
-4. The `signMessage()` method is called with the following parameters:
-    - The PKCS#11 instance
-    - The current session
-    - The handle of the selected private key
-    - The message to be signed (converted to bytes)
-5. The resulting signature is encoded to Base64 for easy display and transmission.
-6. To demonstrate the full process, the method also verifies the signature immediately after creating it:
-    - It uses the `verifySignature()` method, passing the original message, the signature, and the certificate associated with the signing key.
-    - The verification result is printed, confirming whether the signature is valid.
+#### ECDSA Signing
 
-This example demonstrates both the signing and verification process, which are crucial for ensuring data integrity and non-repudiation in cryptographic systems.
+For elliptic curve keys:
+
+```java
+private void signWithEcdsa(PKCS11Manager manager, PKCS11Session session,
+                           KeyCertificatePair ecKeyPair) throws Exception {
+    String message = "Data to sign with ECDSA";
+
+    PKCS11ECDSASigner ecdsaSigner = new PKCS11ECDSASigner();
+
+    // Sign with SHA-256 (default)
+    byte[] signature = ecdsaSigner.signMessage(
+            manager.getPkcs11(),
+            session.getSession(),
+            ecKeyPair.getKeyHandle(),
+            message.getBytes());
+
+    // Or with specific algorithm
+    byte[] signatureSha384 = ecdsaSigner.signMessage(
+            manager.getPkcs11(),
+            session.getSession(),
+            ecKeyPair.getKeyHandle(),
+            message.getBytes(),
+            PKCS11ECDSASigner.ECDSAAlgorithm.ECDSA_SHA384);
+
+    // Sign a pre-computed hash
+    byte[] hash = computeHash(message.getBytes());
+    byte[] hashSignature = ecdsaSigner.signHash(
+            manager.getPkcs11(),
+            session.getSession(),
+            ecKeyPair.getKeyHandle(),
+            hash);
+
+    // Verify
+    boolean valid = ecdsaSigner.verifySignature(
+            message.getBytes(),
+            signature,
+            ecKeyPair.getCertificate());
+}
+```
+
+**Supported ECDSA Algorithms:**
+- `ECDSA` - Raw ECDSA (hash computed separately)
+- `ECDSA_SHA1` - ECDSA with SHA-1
+- `ECDSA_SHA224` - ECDSA with SHA-224
+- `ECDSA_SHA256` - ECDSA with SHA-256 (default)
+- `ECDSA_SHA384` - ECDSA with SHA-384
+- `ECDSA_SHA512` - ECDSA with SHA-512
 
 #### Encrypting and Decrypting Data
 
-```java
-private void encryptDecryptData(PKCS11Manager manager, PKCS11Session session) {
-    KeyCertificatePair selectedPair = selectCertificateKeyPair(manager, session);
+**Hybrid Encryption (AES + RSA):**
 
-    System.out.print("Enter data to encrypt: ");
-    Scanner scanner = new Scanner(System.in);
-    String dataToEncrypt = scanner.nextLine();
+```java
+private void hybridEncryption(PKCS11Manager manager, PKCS11Session session,
+                              KeyCertificatePair selectedPair) {
+    String dataToEncrypt = "Sensitive data to protect";
 
     PKCS11Crypto crypto = new PKCS11Crypto();
 
-    byte[] encryptedData = crypto.encryptData(dataToEncrypt.getBytes(), selectedPair.getCertificate());
-    System.out.println("Data encrypted successfully.");
+    // Encrypt: generates AES key, encrypts data, wraps AES key with RSA
+    byte[][] encryptedPackage = crypto.encryptData(
+            dataToEncrypt.getBytes(),
+            selectedPair.getCertificate());
+    // encryptedPackage[0] = encrypted AES key
+    // encryptedPackage[1] = IV
+    // encryptedPackage[2] = encrypted data
 
-    byte[] decryptedData = crypto.decryptData(manager.getPkcs11(), session.getSession(), selectedPair.getKeyHandle(), encryptedData);
-    System.out.println("Decrypted data: " + new String(decryptedData));
+    // Decrypt using hardware RSA
+    byte[] decryptedData = crypto.decryptData(
+            manager.getPkcs11(),
+            session.getSession(),
+            selectedPair.getKeyHandle(),
+            encryptedPackage);
 
-    if (dataToEncrypt.equals(new String(decryptedData))) {
-        System.out.println("Encryption and decryption successful: data integrity verified.");
-    } else {
-        System.out.println("Warning: Decrypted data does not match original input.");
-    }
+    System.out.println("Decrypted: " + new String(decryptedData));
 }
 ```
 
-This method demonstrates the full cycle of encrypting and then decrypting data using the PKCS#11 token. Here's a detailed breakdown:
+**Direct RSA Encryption:**
 
-1. Similar to the signing process, it starts by allowing the user to select a key-certificate pair.
-2. The user is prompted to enter some data to encrypt.
-3. A `PKCS11Crypto` object is created to handle both encryption and decryption.
-4. Encryption:
-    - The `encryptData()` method is called with the input data and the selected certificate.
-    - This method uses the public key from the certificate to encrypt the data.
-5. Decryption:
-    - The `decryptData()` method is then called with the PKCS#11 instance, current session, private key handle, and the encrypted data.
-    - This method uses the private key stored in the PKCS#11 token to decrypt the data.
-6. The decrypted data is converted back to a string and printed.
-7. As a final step, the method compares the original input with the decrypted output to verify that the process preserved data integrity.
+```java
+private void directRsaEncryption(PKCS11Manager manager, PKCS11Session session,
+                                  KeyCertificatePair selectedPair) {
+    byte[] smallData = "Small data (< 245 bytes for 2048-bit key)".getBytes();
 
-This example showcases the complete encryption and decryption cycle, demonstrating how to secure data using asymmetric cryptography with keys stored in a PKCS#11 token.
+    PKCS11RSACrypto rsaCrypto = new PKCS11RSACrypto();
+
+    // Encrypt with public key (software)
+    byte[] encrypted = rsaCrypto.encryptData(smallData, selectedPair.getCertificate());
+
+    // Decrypt with private key (hardware)
+    byte[] decrypted = rsaCrypto.decryptData(
+            manager.getPkcs11(),
+            session.getSession(),
+            selectedPair.getKeyHandle(),
+            encrypted);
+}
+```
+
+#### Hardware Random Number Generation
+
+```java
+private void generateRandomData(PKCS11Manager manager, PKCS11Session session) {
+    PKCS11Random random = new PKCS11Random(
+            manager.getPkcs11(),
+            session.getSession());
+
+    // Generate random bytes
+    byte[] randomBytes = random.generateRandomBytes(32);
+
+    // Use as SecureRandom
+    byte[] buffer = new byte[16];
+    random.nextBytes(buffer);
+
+    // Generate random primitives
+    int randomInt = random.nextInt();
+    long randomLong = random.nextLong();
+    boolean randomBool = random.nextBoolean();
+    double randomDouble = random.nextDouble();
+
+    System.out.println("Algorithm: " + random.getAlgorithm()); // PKCS11-HardwareRNG
+}
+```
+
+#### Hardware Digest Operations
+
+```java
+private void computeDigests(PKCS11Manager manager, PKCS11Session session) {
+    PKCS11Digest digest = new PKCS11Digest(
+            manager.getPkcs11(),
+            session.getSession());
+
+    byte[] data = "Data to hash".getBytes();
+
+    // Convenience methods
+    byte[] sha256 = digest.sha256(data);
+    byte[] sha384 = digest.sha384(data);
+    byte[] sha512 = digest.sha512(data);
+    byte[] sha1 = digest.sha1(data);
+    byte[] md5 = digest.md5(data);
+    byte[] ripemd160 = digest.ripemd160(data);
+
+    // Using algorithm enum
+    byte[] hash = digest.digest(PKCS11Digest.Algorithm.SHA256, data);
+
+    // Using algorithm name string
+    byte[] hashByName = digest.digest("SHA-256", data);
+
+    // Convert to hex string
+    String hexHash = PKCS11Digest.toHex(sha256);
+    System.out.println("SHA-256: " + hexHash);
+}
+```
+
+**Supported Digest Algorithms:**
+- MD5 (16 bytes)
+- SHA-1 (20 bytes)
+- SHA-224 (28 bytes)
+- SHA-256 (32 bytes)
+- SHA-384 (48 bytes)
+- SHA-512 (64 bytes)
+- RIPEMD-160 (20 bytes)
+
+#### ECDH Key Derivation
+
+```java
+private void deriveSharedSecret(PKCS11Manager manager, PKCS11Session session,
+                                 NativeLong ecPrivateKeyHandle,
+                                 ECPublicKey peerPublicKey) {
+    PKCS11KeyDerivation keyDerivation = new PKCS11KeyDerivation();
+
+    // Extract EC point from peer's public key
+    byte[] peerEcPoint = PKCS11KeyDerivation.extractEcPoint(peerPublicKey);
+
+    // Derive shared secret (32 bytes, NULL KDF)
+    NativeLong derivedKeyHandle = keyDerivation.deriveKey(
+            manager.getPkcs11(),
+            session.getSession(),
+            ecPrivateKeyHandle,
+            peerEcPoint,
+            32);
+
+    // With specific KDF and key type
+    NativeLong aesKeyHandle = keyDerivation.deriveKey(
+            manager.getPkcs11(),
+            session.getSession(),
+            ecPrivateKeyHandle,
+            peerEcPoint,
+            32,
+            PKCS11KeyDerivation.KeyDerivationFunction.SHA256,
+            PKCS11KeyDerivation.DerivedKeyType.AES);
+
+    // With cofactor multiplication (enhanced security)
+    NativeLong cofactorKey = keyDerivation.deriveKeyWithCofactor(
+            manager.getPkcs11(),
+            session.getSession(),
+            ecPrivateKeyHandle,
+            peerEcPoint,
+            32);
+}
+```
+
+**Supported Key Derivation Functions:**
+- `NULL` - Raw shared secret (no KDF)
+- `SHA1` - SHA-1 based KDF
+- `SHA256` - SHA-256 based KDF
+- `SHA384` - SHA-384 based KDF
+- `SHA512` - SHA-512 based KDF
 
 #### Listing Supported Algorithms
 
 ```java
 private void listSupportedAlgorithms(PKCS11Manager manager, PKCS11Session session) {
-    List<SupportedAlgorithm> algorithms = utils.listSupportedAlgorithms(manager.getPkcs11(), session.getSession(), 0);
+    PKCS11Utils utils = new PKCS11Utils();
+    List<SupportedAlgorithm> algorithms = utils.listSupportedAlgorithms(
+            manager.getPkcs11(),
+            session.getSession(),
+            0);
+
     System.out.println("\nSupported algorithms:");
     for (SupportedAlgorithm algo : algorithms) {
         System.out.println(algo);
@@ -293,253 +516,155 @@ private void listSupportedAlgorithms(PKCS11Manager manager, PKCS11Session sessio
 }
 ```
 
-This method demonstrates how to query and display the cryptographic algorithms supported by the PKCS#11 token. Here's what it does:
-
-1. It uses the `PKCS11Utils` class to retrieve a list of supported algorithms from the PKCS#11 token.
-    - The `listSupportedAlgorithms()` method is called with the PKCS#11 instance, the current session, and a slot ID (0 in this case).
-2. It then iterates through the list of `SupportedAlgorithm` objects.
-3. Each algorithm is printed to the console.
-
-The `SupportedAlgorithm` class (not shown here) likely contains information such as:
-- The algorithm's name
-- Its PKCS#11 mechanism code
-- The types of operations it supports (e.g., encryption, signing, key generation)
-
-This functionality is crucial for developers and system administrators to understand the capabilities of their PKCS#11 token, ensuring that required cryptographic operations are supported before attempting to use them.
-
-These detailed examples provide a comprehensive overview of the core functionalities of the PKCS11 Java Wrapper, demonstrating how to perform essential cryptographic operations using a PKCS#11 token.
-
-## 🏗️ Architecture
+## Architecture
 
 The project is structured into several key components:
 
-- `PKCS11Manager`: Manages the lifecycle of the PKCS#11 library and sessions.
-- `PKCS11Session`: Represents a PKCS#11 session and handles session-specific operations.
-- `PKCS11Crypto`: Handles encryption and decryption operations.
-- `PKCS11Signer`: Manages digital signature creation and verification.
-- `PKCS11Utils`: Provides utility functions for various PKCS#11 operations.
-- `exceptions`: A package containing custom exceptions for precise error handling.
-- `model`: Contains data models used throughout the project.
+### Core Components
+
+| Class | Responsibility |
+|-------|---------------|
+| `PKCS11Manager` | Entry point. Initialize library, list devices, create sessions, register device listeners |
+| `PKCS11Session` | Session lifecycle (login/logout), PIN authentication, implements AutoCloseable |
+| `PKCS11DeviceManager` | Background device monitoring (2-second polling), hot-plug detection, listener notification |
+| `PKCS11Initializer` | PKCS#11 library initialization |
+
+### Cryptographic Operations
+
+| Class | Responsibility |
+|-------|---------------|
+| `PKCS11Signer` | RSA signing with SHA-1/224/256/384/512, multi-part signing for large files |
+| `PKCS11ECDSASigner` | ECDSA signing with SHA-1/224/256/384/512 |
+| `PKCS11Crypto` | Hybrid encryption: AES/CBC/PKCS5Padding for data, RSA for key wrapping |
+| `PKCS11RSACrypto` | Direct RSA encryption/decryption with PKCS#1 v1.5 |
+| `PKCS11Digest` | Hardware-based hashing (MD5, SHA family, RIPEMD-160) |
+| `PKCS11Random` | Hardware random number generation (extends SecureRandom) |
+| `PKCS11KeyDerivation` | ECDH key derivation with KDF options |
+| `PKCS11Utils` | Find private key + certificate pairs, list supported algorithms |
+
+### JNA Native Bindings
+
+| Package | Responsibility |
+|---------|---------------|
+| `jna.Cryptoki` | JNA interface for PKCS#11 library (based on OASIS v2.40) |
+| `jna.constants` | PKCS#11 constants (AttributeType, MechanismType, ReturnValue, etc.) |
+| `jna.structure` | JNA structures (Mechanism, Attribute, TokenInfo, etc.) |
 
 ### Class Diagrams
 
 ```mermaid
 classDiagram
     class PKCS11Manager {
-        -Pkcs11 pkcs11
+        -Cryptoki pkcs11
         -Path libraryPath
-        -String pin
-        +PKCS11Manager(Path libraryPath, String pin)
-        +openSession(int slotId): PKCS11Session
-        +getPKCS11Token(): Pkcs11SignatureToken
+        -PKCS11DeviceManager deviceManager
+        +PKCS11Manager(Path libraryPath)
+        +listDevices(): List~PKCS11Device~
+        +openSession(PKCS11Device, String): PKCS11Session
+        +registerDeviceChangeListener(DeviceChangeListener)
+        +getPkcs11(): Cryptoki
         +close()
     }
+
     class PKCS11Session {
-        -Pkcs11 pkcs11
+        -Cryptoki pkcs11
         -NativeLong session
         -String pin
-        +PKCS11Session(Pkcs11 pkcs11, String pin, int slotId)
+        +PKCS11Session(Cryptoki, String, NativeLong)
+        +getSession(): NativeLong
         +resetSession()
         +logout()
         +close()
     }
-    class PKCS11Initializer {
-        +initializePkcs11(Path libraryPath): Pkcs11
-    }
-    class PKCS11Crypto {
-        -initCrypto(Pkcs11 pkcs11, NativeLong session, NativeLong privateKeyHandle)
-        +encryptData(byte[] dataToEncrypt, X509Certificate certificate): byte[]
-        +decryptData(Pkcs11 pkcs11, NativeLong session, NativeLong privateKeyHandle, byte[] encryptedData): byte[]
-        -decrypt(Pkcs11 pkcs11, NativeLong session, byte[] encryptedData): byte[]
-    }
+
     class PKCS11Signer {
-        -initSigning(Pkcs11 pkcs11, NativeLong session, NativeLong privateKeyHandle)
-        +signMessage(Pkcs11 pkcs11, NativeLong session, NativeLong privateKeyHandle, byte[] message): byte[]
-        +verifySignature(byte[] message, byte[] signature, X509Certificate certificate): boolean
-        -sign(Pkcs11 pkcs11, NativeLong session, byte[] message): byte[]
-    }
-    class PKCS11Utils {
-        +findPrivateKeysAndCertificates(Pkcs11 pkcs11, NativeLong session): List<KeyCertificatePair>
-        +listSupportedAlgorithms(Pkcs11 pkcs11, NativeLong session, int slotID): List<SupportedAlgorithm>
-        -findAllCertificates(Pkcs11 pkcs11, NativeLong session): Map<String, NativeLong>
-        -findAllPrivateKeys(Pkcs11 pkcs11, NativeLong session): Map<String, NativeLong>
-        -getCKA_ID(Pkcs11 pkcs11, NativeLong session, NativeLong objectHandle): String
-        -getCertificate(Pkcs11 pkcs11, NativeLong session, NativeLong certHandle): X509Certificate
-        -bytesToHex(byte[] bytes): String
-        -getMechanismList(Pkcs11 pkcs11, NativeLong slotID): NativeLong[]
-        -getMechanismName(long mechanismCode): String
-        -getAlgorithmType(CK_MECHANISM_INFO mechanismInfo): SupportedAlgorithm.AlgorithmType
-    }
-    class KeyCertificatePair {
-        -NativeLong keyHandle
-        -X509Certificate certificate
-        -String ckaId
-        -CertificateInfo certificateInfo
-    }
-    class CertificateInfo {
-        -String subject
-        -String issuer
-        -BigInteger serialNumber
-        -byte[] signature
-        -Date notBefore
-        -Date notAfter
-        -String sigAlgName
-        -String sigAlgOID
-        -byte[] tbsCertificate
-        -int version
-        -PublicKey publicKey
-        -boolean[] issuerUniqueID
-        -boolean[] subjectUniqueID
-        -boolean[] keyUsage
-        -List<String> extendedKeyUsage
-        -int basicConstraints
-        -Collection<List<?>> subjectAlternativeNames
-        -Collection<List<?>> issuerAlternativeNames
-        -byte[] encoded
-    }
-    class SupportedAlgorithm {
-        -String name
-        -String code
-        -AlgorithmType type
-        +enum AlgorithmType
-    }
-    class PKCS11DeviceManager {
-        -Pkcs11 pkcs11
-        -Map<NativeLong, PKCS11Device> devices
-        -Set<DeviceChangeListener> listeners
-        -ScheduledExecutorService deviceMonitor
-        +listDevices(): List<PKCS11Device>
-        +listDevicesByState(DeviceState): List<PKCS11Device>
-        +listDevicesByCapability(DeviceCapability): List<PKCS11Device>
-        +getDevice(NativeLong): Optional<PKCS11Device>
-        +registerDeviceChangeListener(DeviceChangeListener)
-        +unregisterDeviceChangeListener(DeviceChangeListener)
-    }
-    
-    class PKCS11Device {
-        -NativeLong slotId
-        -String label
-        -String manufacturer
-        -String model
-        -String serialNumber
-        -Set<DeviceCapability> capabilities
-        -DeviceState state
-        +getDetailedInfo(): Map<String, String>
-        +updateState(): boolean
-        +isReady(): boolean
-    }
-    
-    class DeviceChangeListener {
-        <<interface>>
-        +onDeviceConnected(PKCS11Device)
-        +onDeviceDisconnected(PKCS11Device)
-        +onDeviceStateChanged(PKCS11Device, DeviceState)
-        +onDeviceError(PKCS11Device, Exception)
+        +signMessage(Cryptoki, NativeLong, NativeLong, byte[]): byte[]
+        +signMessage(Cryptoki, NativeLong, NativeLong, byte[], SigningAlgorithm): byte[]
+        +verifySignature(byte[], byte[], X509Certificate): boolean
+        +verifySignature(byte[], byte[], X509Certificate, SigningAlgorithm): boolean
     }
 
-    PKCS11Manager --> PKCS11DeviceManager : uses
-    PKCS11DeviceManager --> PKCS11Device : manages
-    PKCS11DeviceManager --> DeviceChangeListener : notifies
-    PKCS11Manager --> PKCS11Initializer : uses
+    class PKCS11ECDSASigner {
+        +signMessage(Cryptoki, NativeLong, NativeLong, byte[]): byte[]
+        +signMessage(Cryptoki, NativeLong, NativeLong, byte[], ECDSAAlgorithm): byte[]
+        +signHash(Cryptoki, NativeLong, NativeLong, byte[]): byte[]
+        +verifySignature(byte[], byte[], X509Certificate): boolean
+    }
+
+    class PKCS11Crypto {
+        +encryptData(byte[], X509Certificate): byte[][]
+        +decryptData(Cryptoki, NativeLong, NativeLong, byte[][]): byte[]
+    }
+
+    class PKCS11RSACrypto {
+        +encryptData(byte[], X509Certificate): byte[]
+        +decryptData(Cryptoki, NativeLong, NativeLong, byte[]): byte[]
+    }
+
+    class PKCS11Digest {
+        -Cryptoki pkcs11
+        -NativeLong session
+        +digest(Algorithm, byte[]): byte[]
+        +sha256(byte[]): byte[]
+        +sha384(byte[]): byte[]
+        +sha512(byte[]): byte[]
+        +toHex(byte[]): String
+    }
+
+    class PKCS11Random {
+        -Cryptoki pkcs11
+        -NativeLong session
+        +nextBytes(byte[])
+        +generateRandomBytes(int): byte[]
+        +nextInt(): int
+        +nextLong(): long
+        +getAlgorithm(): String
+    }
+
+    class PKCS11KeyDerivation {
+        +deriveKey(Cryptoki, NativeLong, NativeLong, byte[], int): NativeLong
+        +deriveKeyWithCofactor(Cryptoki, NativeLong, NativeLong, byte[], int): NativeLong
+        +extractEcPoint(ECPublicKey): byte[]
+    }
+
+    class PKCS11DeviceManager {
+        -Cryptoki pkcs11
+        -Map~NativeLong, PKCS11Device~ devices
+        -Set~DeviceChangeListener~ listeners
+        +listDevices(): List~PKCS11Device~
+        +listDevicesByState(DeviceState): List~PKCS11Device~
+        +registerDeviceChangeListener(DeviceChangeListener)
+    }
+
+    class Cryptoki {
+        <<interface>>
+        +C_Initialize(InitializeArgs): NativeLong
+        +C_Finalize(Pointer): NativeLong
+        +C_GetSlotList(byte, NativeLong[], NativeLongByReference): NativeLong
+        +C_OpenSession(...): NativeLong
+        +C_Login(...): NativeLong
+        +C_Sign(...): NativeLong
+        +C_Decrypt(...): NativeLong
+        +C_DigestInit(...): NativeLong
+        +C_GenerateRandom(...): NativeLong
+        +C_DeriveKey(...): NativeLong
+    }
+
+    PKCS11Manager --> PKCS11DeviceManager : manages
     PKCS11Manager --> PKCS11Session : creates
-    PKCS11Manager --> Pkcs11 : manages
-    PKCS11Session --> Pkcs11 : uses
-    PKCS11Crypto --> Pkcs11 : uses
-    PKCS11Signer --> Pkcs11 : uses
-    PKCS11Utils --> Pkcs11 : uses
-    PKCS11Utils --> KeyCertificatePair : creates
-    PKCS11Utils --> SupportedAlgorithm : creates
-    KeyCertificatePair --> CertificateInfo : contains
-    KeyCertificatePair --> X509Certificate : contains
+    PKCS11Manager --> Cryptoki : uses
+    PKCS11Session --> Cryptoki : uses
+    PKCS11Signer --> Cryptoki : uses
+    PKCS11ECDSASigner --> Cryptoki : uses
+    PKCS11Crypto --> Cryptoki : uses
+    PKCS11RSACrypto --> Cryptoki : uses
+    PKCS11Digest --> Cryptoki : uses
+    PKCS11Random --> Cryptoki : uses
+    PKCS11KeyDerivation --> Cryptoki : uses
+    PKCS11DeviceManager --> Cryptoki : uses
 ```
 
 ### Sequence Diagrams
-
-#### Encryption Process
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant PKCS11Manager
-    participant PKCS11Initializer
-    participant PKCS11Session
-    participant PKCS11Utils
-    participant PKCS11Crypto
-    participant Pkcs11Library
-
-    Client->>PKCS11Manager: new PKCS11Manager(libraryPath, pin)
-    PKCS11Manager->>PKCS11Initializer: initializePkcs11(libraryPath)
-    PKCS11Initializer->>Pkcs11Library: C_Initialize()
-    Pkcs11Library-->>PKCS11Initializer: return Pkcs11 object
-    PKCS11Initializer-->>PKCS11Manager: return Pkcs11 object
-    
-    Client->>PKCS11Manager: openSession(slotId)
-    PKCS11Manager->>PKCS11Session: new PKCS11Session(pkcs11, pin, slotId)
-    PKCS11Session->>Pkcs11Library: C_OpenSession()
-    PKCS11Session->>Pkcs11Library: C_Login()
-    
-    Client->>PKCS11Utils: findPrivateKeysAndCertificates(pkcs11, session)
-    PKCS11Utils->>Pkcs11Library: C_FindObjectsInit()
-    PKCS11Utils->>Pkcs11Library: C_FindObjects()
-    PKCS11Utils->>Pkcs11Library: C_GetAttributeValue()
-    PKCS11Utils-->>Client: return List<KeyCertificatePair>
-    
-    Client->>PKCS11Crypto: encryptData(dataToEncrypt, certificate)
-    PKCS11Crypto->>PKCS11Crypto: Cipher.getInstance("RSA/ECB/PKCS1Padding")
-    PKCS11Crypto->>PKCS11Crypto: cipher.init(Cipher.ENCRYPT_MODE, certificate.getPublicKey())
-    PKCS11Crypto->>PKCS11Crypto: cipher.doFinal(dataToEncrypt)
-    PKCS11Crypto-->>Client: return encryptedData
-
-    Client->>PKCS11Session: close()
-    PKCS11Session->>Pkcs11Library: C_Logout()
-    PKCS11Session->>Pkcs11Library: C_CloseSession()
-    
-    Client->>PKCS11Manager: close()
-    PKCS11Manager->>Pkcs11Library: C_Finalize()
-```
-
-#### Decryption Process
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant PKCS11Manager
-    participant PKCS11Initializer
-    participant PKCS11Session
-    participant PKCS11Utils
-    participant PKCS11Crypto
-    participant Pkcs11Library
-
-    Client->>PKCS11Manager: new PKCS11Manager(libraryPath, pin)
-    PKCS11Manager->>PKCS11Initializer: initializePkcs11(libraryPath)
-    PKCS11Initializer->>Pkcs11Library: C_Initialize()
-    Pkcs11Library-->>PKCS11Initializer: return Pkcs11 object
-    PKCS11Initializer-->>PKCS11Manager: return Pkcs11 object
-    
-    Client->>PKCS11Manager: openSession(slotId)
-    PKCS11Manager->>PKCS11Session: new PKCS11Session(pkcs11, pin, slotId)
-    PKCS11Session->>Pkcs11Library: C_OpenSession()
-    PKCS11Session->>Pkcs11Library: C_Login()
-    
-    Client->>PKCS11Utils: findPrivateKeysAndCertificates(pkcs11, session)
-    PKCS11Utils->>Pkcs11Library: C_FindObjectsInit()
-    PKCS11Utils->>Pkcs11Library: C_FindObjects()
-    PKCS11Utils->>Pkcs11Library: C_GetAttributeValue()
-    PKCS11Utils-->>Client: return List<KeyCertificatePair>
-    
-    Client->>PKCS11Crypto: decryptData(pkcs11, session, privateKeyHandle, encryptedData)
-    PKCS11Crypto->>Pkcs11Library: C_DecryptInit()
-    PKCS11Crypto->>Pkcs11Library: C_Decrypt()
-    Pkcs11Library-->>PKCS11Crypto: return decryptedData
-    PKCS11Crypto-->>Client: return decryptedData
-
-    Client->>PKCS11Session: close()
-    PKCS11Session->>Pkcs11Library: C_Logout()
-    PKCS11Session->>Pkcs11Library: C_CloseSession()
-    
-    Client->>PKCS11Manager: close()
-    PKCS11Manager->>Pkcs11Library: C_Finalize()
-```
 
 #### Signing Process
 
@@ -547,151 +672,123 @@ sequenceDiagram
 sequenceDiagram
     participant Client
     participant PKCS11Manager
-    participant PKCS11Initializer
     participant PKCS11Session
-    participant PKCS11Utils
     participant PKCS11Signer
-    participant Pkcs11Library
+    participant Cryptoki
 
-    Client->>PKCS11Manager: new PKCS11Manager(libraryPath, pin)
-    PKCS11Manager->>PKCS11Initializer: initializePkcs11(libraryPath)
-    PKCS11Initializer->>Pkcs11Library: C_Initialize()
-    Pkcs11Library-->>PKCS11Initializer: return Pkcs11 object
-    PKCS11Initializer-->>PKCS11Manager: return Pkcs11 object
-    
-    Client->>PKCS11Manager: openSession(slotId)
-    PKCS11Manager->>PKCS11Session: new PKCS11Session(pkcs11, pin, slotId)
-    PKCS11Session->>Pkcs11Library: C_OpenSession()
-    PKCS11Session->>Pkcs11Library: C_Login()
-    
-    Client->>PKCS11Utils: findPrivateKeysAndCertificates(pkcs11, session)
-    PKCS11Utils->>Pkcs11Library: C_FindObjectsInit()
-    PKCS11Utils->>Pkcs11Library: C_FindObjects()
-    PKCS11Utils->>Pkcs11Library: C_GetAttributeValue()
-    PKCS11Utils-->>Client: return List<KeyCertificatePair>
-    
-    Client->>PKCS11Signer: signMessage(pkcs11, session, privateKeyHandle, message)
-    PKCS11Signer->>PKCS11Signer: initSigning(pkcs11, session, privateKeyHandle)
-    PKCS11Signer->>Pkcs11Library: C_SignInit()
-    PKCS11Signer->>PKCS11Signer: sign(pkcs11, session, message)
-    PKCS11Signer->>Pkcs11Library: C_Sign()
-    Pkcs11Library-->>PKCS11Signer: return signature
-    PKCS11Signer-->>Client: return signature
+    Client->>PKCS11Manager: new PKCS11Manager(libraryPath)
+    PKCS11Manager->>Cryptoki: C_Initialize()
+
+    Client->>PKCS11Manager: openSession(device, pin)
+    PKCS11Manager->>Cryptoki: C_OpenSession()
+    PKCS11Manager->>Cryptoki: C_Login()
+    PKCS11Manager-->>Client: PKCS11Session
+
+    Client->>PKCS11Signer: signMessage(pkcs11, session, keyHandle, message)
+    PKCS11Signer->>Cryptoki: C_SignInit(mechanism)
+    alt Small message (< 16KB)
+        PKCS11Signer->>Cryptoki: C_Sign()
+    else Large message (>= 16KB)
+        loop For each chunk
+            PKCS11Signer->>Cryptoki: C_SignUpdate(chunk)
+        end
+        PKCS11Signer->>Cryptoki: C_SignFinal()
+    end
+    Cryptoki-->>PKCS11Signer: signature
+    PKCS11Signer-->>Client: signature
 
     Client->>PKCS11Session: close()
-    PKCS11Session->>Pkcs11Library: C_Logout()
-    PKCS11Session->>Pkcs11Library: C_CloseSession()
-    
-    Client->>PKCS11Manager: close()
-    PKCS11Manager->>Pkcs11Library: C_Finalize()
+    PKCS11Session->>Cryptoki: C_Logout()
+    PKCS11Session->>Cryptoki: C_CloseSession()
 ```
 
-#### Signature Verification Process
+#### Hybrid Encryption/Decryption Process
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant PKCS11Manager
-    participant PKCS11Initializer
-    participant PKCS11Session
-    participant PKCS11Utils
-    participant PKCS11Signer
-    participant BouncyCastleProvider
-    participant Signature
+    participant PKCS11Crypto
+    participant Cryptoki
+    participant BouncyCastle
 
-    Client->>PKCS11Manager: new PKCS11Manager(libraryPath, pin)
-    PKCS11Manager->>PKCS11Initializer: initializePkcs11(libraryPath)
-    PKCS11Initializer->>Pkcs11Library: C_Initialize()
-    Pkcs11Library-->>PKCS11Initializer: return Pkcs11 object
-    PKCS11Initializer-->>PKCS11Manager: return Pkcs11 object
-    
-    Client->>PKCS11Manager: openSession(slotId)
-    PKCS11Manager->>PKCS11Session: new PKCS11Session(pkcs11, pin, slotId)
-    PKCS11Session->>Pkcs11Library: C_OpenSession()
-    PKCS11Session->>Pkcs11Library: C_Login()
-    
-    Client->>PKCS11Utils: findPrivateKeysAndCertificates(pkcs11, session)
-    PKCS11Utils->>Pkcs11Library: C_FindObjectsInit()
-    PKCS11Utils->>Pkcs11Library: C_FindObjects()
-    PKCS11Utils->>Pkcs11Library: C_GetAttributeValue()
-    PKCS11Utils-->>Client: return List<KeyCertificatePair>
-    
-    Client->>PKCS11Signer: verifySignature(message, signature, certificate)
-    PKCS11Signer->>BouncyCastleProvider: new BouncyCastleProvider()
-    PKCS11Signer->>Signature: getInstance("SHA256withRSA", BouncyCastleProvider)
-    Signature-->>PKCS11Signer: return Signature object
-    PKCS11Signer->>Signature: initVerify(certificate.getPublicKey())
-    PKCS11Signer->>Signature: update(message)
-    PKCS11Signer->>Signature: verify(signature)
-    Signature-->>PKCS11Signer: return verification result
-    PKCS11Signer-->>Client: return verification result
+    Note over Client,BouncyCastle: Encryption (Software)
+    Client->>PKCS11Crypto: encryptData(data, certificate)
+    PKCS11Crypto->>PKCS11Crypto: Generate AES-256 key
+    PKCS11Crypto->>PKCS11Crypto: Encrypt data with AES/CBC
+    PKCS11Crypto->>BouncyCastle: RSA encrypt AES key
+    PKCS11Crypto-->>Client: [encryptedKey, iv, encryptedData]
 
-    Client->>PKCS11Session: close()
-    PKCS11Session->>Pkcs11Library: C_Logout()
-    PKCS11Session->>Pkcs11Library: C_CloseSession()
-    
-    Client->>PKCS11Manager: close()
-    PKCS11Manager->>Pkcs11Library: C_Finalize()
+    Note over Client,BouncyCastle: Decryption (Hardware RSA)
+    Client->>PKCS11Crypto: decryptData(pkcs11, session, keyHandle, package)
+    PKCS11Crypto->>Cryptoki: C_DecryptInit(RSA_PKCS)
+    PKCS11Crypto->>Cryptoki: C_Decrypt(encryptedKey)
+    Cryptoki-->>PKCS11Crypto: AES key bytes
+    PKCS11Crypto->>PKCS11Crypto: Decrypt data with AES/CBC
+    PKCS11Crypto-->>Client: decrypted data
 ```
 
-These sequence diagrams illustrate the flow of operations for the core functionalities of the PKCS11 Java Wrapper:
+## Tested Environments
 
-1. **Encryption Process**: Shows how data is encrypted using a certificate's public key.
-2. **Decryption Process**: Demonstrates the steps to decrypt data using a private key stored in the PKCS#11 token.
-3. **Signing Process**: Illustrates how a message is signed using a private key from the PKCS#11 token.
-4. **Signature Verification Process**: Shows how a signature is verified using the corresponding certificate's public key.
+We have thoroughly tested the PKCS11 Java Wrapper in various environments to ensure its compatibility and performance:
 
-Each diagram highlights the interactions between different components of the system, including the client application, PKCS11 wrapper classes, and the underlying PKCS#11 library.
+| Operating System | Architecture | Java Version | OpenSC Version | Status |
+|------------------|--------------|--------------|----------------|--------|
+| Windows 11       | x64          | 25 (OpenJDK) | 0.26.1         | Tested |
+| Windows 11       | x64          | 21 (Eclipse Temurin) | 0.25.1 | Tested |
+| Windows 11       | x32          | 17 (Eclipse Temurin) | 0.25.0 | Tested |
+| Windows 11       | x64          | 21 (Eclipse Temurin) | 0.24.0 | Tested |
+| Windows 11       | x64          | 21 (Eclipse Temurin) | 0.23.0-rc2 | Tested |
+| macOS Sonoma 14.5| arm64        | 21 (Eclipse Temurin) | 0.25.1 | Tested |
+| Ubuntu 24.04     | x64          | 21 (Eclipse Temurin) | 0.25.0 | Tested |
 
-## 🧪 Tested Environments
-
-We have thoroughly tested the PKCS11 Java Wrapper in various environments to ensure its compatibility and performance. Below is a table of our tested configurations:
-
-| Operating System | Processor | Java Version | OpenSC Version | Status |
-|------------------|-----------|--------------|----------------|--------|
-| Windows 11 x64   |  x64 | LTS 21 (Eclipse Temurin) | 0.25.1 | ✅ |
-| Windows 11 x64   |  x32 | LTS 17 (Eclipse Temurin) | 0.25.0 | ✅ |
-| Windows 11 x64   |  x64 | LTS 21 (Eclipse Temurin) | 0.24.0 | ✅ |
-| Windows 11 x64   |  x64 | LTS 21 (Eclipse Temurin) | 0.23.0-rc2 | ✅ |
-| macOS Sonoma 14.5 | arm   | LTS 21 (Eclipse Temurin) | 0.25.1 | ✅ |
-| Ubuntu 24.04 | x64   | LTS 21 (Eclipse Temurin) | 0.25.0 | ✅ |
-
-### Windows 11 x64 and x32
-- **Java**: LTS 21 Eclipse Temurin /  LTS 17 Eclipse Temurin
-- **OpenSC**: Versions: 0.25.1,  0.24.0,  0.23.0-rc2, 0.25.0
-- **Status**: Fully tested and operational
-
-### macOS Sonoma 14.5
-- **Java**: LTS 21 Eclipse Temurin
-- **OpenSC**: Version 0.25.1
-- **Status**: Fully tested and operational
+### Supported OpenSC Versions
+- OpenSC 0.26.1 (Latest)
+- OpenSC 0.25.x
+- OpenSC 0.24.x
+- OpenSC 0.23.x
 
 We continuously strive to expand our testing to cover more environments and configurations. If you successfully run the PKCS11 Java Wrapper in a different environment, please let us know so we can update our compatibility list.
 
-## 🧪 Testing
+## Testing
 
-The project includes a comprehensive test suite to ensure the reliability and correctness of all components. To run the tests, use the following Maven command:
+The project includes a comprehensive test suite (142+ tests) to ensure the reliability and correctness of all components. To run the tests, use the following Maven command:
 
 ```
 mvn test
 ```
 
-Our test suite covers various scenarios, including:
+Our test suite covers:
 
-- Initialization of PKCS#11 library
-- Session management
-- Key and certificate operations
-- Encryption and decryption
-- Digital signature creation and verification
-- Error handling and exception scenarios
+- PKCS#11 library initialization and finalization
+- Session management (open, login, logout, close)
+- RSA signing and verification (all algorithms)
+- ECDSA signing and verification (all algorithms)
+- Hybrid encryption and decryption
+- Direct RSA encryption and decryption
+- Hardware digest operations (all algorithms)
+- Hardware random number generation
+- ECDH key derivation
+- Key and certificate discovery
 - Device detection and management
-- Device state monitoring
-- Hot-plug capability testing
+- Device state monitoring and hot-plug events
 - Device capability filtering
-- Device change event handling
-- Multi-device operations
+- Error handling and exception scenarios
+- Multi-part signing for large files
 
-## 🤝 Contributing
+## Key Dependencies
+
+| Dependency | Version | Purpose |
+|------------|---------|---------|
+| `net.java.dev.jna:jna` | 5.16.0 | Java Native Access for PKCS#11 bindings |
+| `eu.europa.ec.joinup.sd-dss:dss-token` | 6.3 | Digital Signature Service support |
+| `org.bouncycastle:bcpkix-jdk18on` | 1.80 | Cryptography provider |
+| `org.slf4j:slf4j-api` | 2.0.17 | Logging API |
+| `ch.qos.logback:logback-classic` | 1.5.16 | Logging implementation |
+| `org.projectlombok:lombok` | 1.18.42 | Boilerplate reduction |
+| `org.junit.jupiter:junit-jupiter` | 5.11.4 | Testing framework |
+| `org.mockito:mockito-core` | 5.15.2 | Mocking framework |
+
+## Contributing
 
 We welcome contributions to the PKCS11 Java Wrapper Project! Please feel free to submit pull requests, create issues, or suggest new features.
 
@@ -701,14 +798,14 @@ We welcome contributions to the PKCS11 Java Wrapper Project! Please feel free to
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## 📄 License
+## License
 
-This project is licensed under the  GNU GENERAL PUBLIC LICENSE Version 3.0 - see the [LICENSE.md](LICENSE.md) file for details.
+This project is licensed under the GNU GENERAL PUBLIC LICENSE Version 3.0 - see the [LICENSE.md](LICENSE.md) file for details.
 
-## 📞 Contact
+## Contact
 
 Project Link: [https://github.com/SimpleMethod/PKCS11-Java-Wrapper](https://github.com/SimpleMethod/PKCS11-Java-Wrapper)
 
 ---
 
-Thank you for your interest in the PKCS11 Java Wrapper! We hope this tool proves valuable in your cryptographic endeavors. Happy coding! 🚀🔐
+Thank you for your interest in the PKCS11 Java Wrapper! We hope this tool proves valuable in your cryptographic endeavors.
